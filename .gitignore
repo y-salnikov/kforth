@@ -1,0 +1,4 @@
+*.geany
+*.o
+*.ko
+kforth
