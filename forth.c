@@ -87,6 +87,11 @@ void align(forth_context_type* fc)
 	*fc->here_ptr=(size_t)here;
 }
 
+void here(forth_context_type* fc)
+{
+	push_sp(fc,(size_t)*fc->here_ptr);
+}
+
 void add_header(forth_context_type* fc, const char *name, char flags)
 {
 	char counter;
@@ -108,19 +113,34 @@ void add_header(forth_context_type* fc, const char *name, char flags)
 	*fc->latest_ptr=link;
 }
 
-size_t add_primitive(forth_context_type* fc, const char *name, char flags, void* func)
+size_t add_primitive(forth_context_type* fc, const char *name, char flags, size_t func)
 {
 	size_t CFA;
 	add_header(fc,name,flags);
 	CFA=(size_t)*fc->here_ptr;
-	add_cell(fc,(size_t)func);
+	add_cell(fc,func);
 	return CFA;
 }
 
+void interpret_primitive(forth_context_type* fc, size_t f)
+{
+	switch(f)
+	{
+		case 1:		//lit
+			lit(fc);
+		break;
+		case 2:		//here
+			here(fc);
+		break;
+		case 3:		//endw
+			endw(fc);
+		break;
+			//nop
+	}
+}
 
 void forth_main_loop(forth_context_type* fc)
 {
-	void (*dummy)(forth_context_type* fc);
 	size_t CFA;
 	
 	while(fc->stop==0)
@@ -133,22 +153,18 @@ void forth_main_loop(forth_context_type* fc)
 		}
 		else
 		{					// primitive
-			dummy=(void*)CFA;
-			dummy(fc);
+			interpret_primitive(fc,CFA);
 			fc->PC=(size_t*)(*fc->RP++);   // PC <- RP
 		}
 	}
 }
 
-void here(forth_context_type* fc)
-{
-	push_sp(fc,(size_t)*fc->here_ptr);
-}
+
 
 void make_words(forth_context_type* fc)
 {
-	size_t lit_cfa=add_primitive(fc,"lit",0,lit);
-	size_t here_cfa=add_primitive(fc,"here",0,here);
+	size_t lit_cfa=add_primitive(fc,"lit",0,1);
+	size_t here_cfa=add_primitive(fc,"here",0,2);
 }
 
 forth_context_type* forth_init(void)
