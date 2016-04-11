@@ -5,12 +5,15 @@
 
 
 // word fields
-// +-------+---------+------+---------+-----+-----+-----+
-// | flags | counter | name | counter | LFA | CFA | PFA | 
-// +-------+---------+------+---------+-----+-----+-----+
-//    1b      1b        ?       1b      cell cell  ?cells
+// +-------+---------+------+---------+------+-----+-----+-----+
+// | flags | counter | name | counter | align| LFA | CFA | PFA | 
+// +-------+---------+------+---------+------+-----+-----+-----+
+//    1b      1b        ?       1b            cell cell  ?cells
 // CFA = NULL  - :
 // CFA = ADR   - primitive
+// PFA = [CFA1,CFA2,P2,CFA3...]
+//         ^
+//         PC
 
 
 void push_sp(forth_context_type* fc, size_t val)
@@ -37,8 +40,15 @@ void rp_adr_read(forth_context_type* fc)
 
 void lit(forth_context_type* fc)
 {
-	push_sp(fc,*(size_t *)(*fc->RP));
-	*fc->RP+=fc->cell;
+	size_t *tmp;
+	tmp=(size_t*)*fc->RP;
+	push_sp(fc,*tmp);
+	*fc->RP=(size_t)(tmp+1);
+}
+
+void endw(forth_context_type* fc)
+{
+	fc->RP++;
 }
 
 void add_byte(forth_context_type* fc, char b)
@@ -64,11 +74,15 @@ void align(forth_context_type* fc)
 {
 	char m;
 	char *here;
+	int i;
 	here=(char*)*fc->here_ptr;
-	m=(size_t)here % fc->cell;
+	m=((size_t)here) % fc->cell;
 	if(m)
 	{
-		here+=(fc->cell-m);
+		for(i=0;i<fc->cell-m;i++)
+		{
+			*here++=0;
+		}
 	}
 	*fc->here_ptr=(size_t)here;
 }
@@ -89,35 +103,58 @@ void add_header(forth_context_type* fc, const char *name, char flags)
 	here+=counter;
 	*fc->here_ptr=(size_t)here;
 	add_byte(fc,counter);
+	align(fc);
 	add_cell(fc,*fc->latest_ptr);
 	*fc->latest_ptr=link;
+}
+
+size_t add_primitive(forth_context_type* fc, const char *name, char flags, void* func)
+{
+	size_t CFA;
+	add_header(fc,name,flags);
+	CFA=(size_t)*fc->here_ptr;
+	add_cell(fc,(size_t)func);
+	return CFA;
 }
 
 
 void forth_main_loop(forth_context_type* fc)
 {
 	void (*dummy)(forth_context_type* fc);
+	size_t CFA;
 	
 	while(fc->stop==0)
 	{
-		if((*fc->pc)==0)  //: definition
+		CFA=*(size_t*)(*fc->PC);
+		push_rp(fc,(size_t)fc->PC+1);		// PC+1 -> RP
+		if(CFA==0)  //: definition
 		{
-			fc->pc=(size_t*)*(fc->pc+1);			//pc = pfa@ 
-			push_rp(fc,(size_t)fc->pc+2);		// push pfa+1
+			fc->PC=(size_t*)(CFA+fc->cell);  //PC=PFA
 		}
 		else
 		{					// primitive
-			dummy=(void*)*fc->pc;
+			dummy=(void*)CFA;
 			dummy(fc);
-			fc->pc=(size_t*)*(size_t*)(*fc->RP++);
+			fc->PC=(size_t*)(*fc->RP++);   // PC <- RP
 		}
 	}
+}
+
+void here(forth_context_type* fc)
+{
+	push_sp(fc,(size_t)*fc->here_ptr);
+}
+
+void make_words(forth_context_type* fc)
+{
+	size_t lit_cfa=add_primitive(fc,"lit",0,lit);
+	size_t here_cfa=add_primitive(fc,"here",0,here);
 }
 
 forth_context_type* forth_init(void)
 {
 	forth_context_type* fc;
-	fc=malloc(sizeof(forth_context_type));  //should i check this&
+	fc=malloc(sizeof(forth_context_type));  //should i check this?
 	fc->mem=malloc(MEM_SIZE);
 	fc->cell=sizeof(size_t);
 	fc->stop=0;
@@ -128,5 +165,6 @@ forth_context_type* forth_init(void)
 	fc->latest_ptr=(size_t*)fc->begin+fc->cell;
 	*fc->latest_ptr=0;
 	*fc->here_ptr=(size_t)fc->begin+fc->cell*2;
+	make_words(fc);
 	return fc;
 }

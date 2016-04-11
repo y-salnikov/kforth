@@ -6,10 +6,10 @@ typedef struct forth_context_struct
 	size_t mem_size;
 	size_t *SP;
 	size_t *RP;
+	size_t *PC;
 	char *begin;
 	size_t *here_ptr;
 	size_t *latest_ptr;
-	size_t *pc;
 	char	stop;
 	
 }forth_context_type;
