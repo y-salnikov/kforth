@@ -9,7 +9,8 @@ typedef struct forth_context_struct
 	char *begin;
 	size_t *here_ptr;
 	size_t *latest_ptr;
-	size_t pc;
+	size_t *pc;
+	char	stop;
 	
 }forth_context_type;
 
