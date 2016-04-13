@@ -177,6 +177,41 @@ void pbranch(forth_context_type* fc)
 	else *fc->RP=*tmp;
 }
 
+void plus(forth_context_type* fc)
+{
+	size_t tmp;
+	tmp=*(fc->SP++);
+	*fc->SP+=tmp;
+}
+
+void minus(forth_context_type* fc)
+{
+	size_t tmp;
+	tmp=*(fc->SP++);
+	*fc->SP-=tmp;
+}
+
+void mult(forth_context_type* fc)
+{
+	size_t tmp;
+	tmp=*(fc->SP++);
+	*fc->SP*=tmp;
+}
+
+void div_(forth_context_type* fc)
+{
+	size_t tmp;
+	tmp=*(fc->SP++);
+	*fc->SP/=tmp;
+}
+
+void mod_(forth_context_type* fc)
+{
+	size_t tmp;
+	tmp=*(fc->SP++);
+	*fc->SP%=tmp;
+}
+
 
 void add_header(forth_context_type* fc, const char *name, char flags)
 {
@@ -264,7 +299,21 @@ void interpret_primitive(forth_context_type* fc, size_t f)
 		case 14:	//?branch
 			pbranch(fc);
 		break;
-			
+		case 15:	//+
+			plus(fc);
+		break;
+		case 16:   //-
+			minus(fc);
+		break;
+		case 17:   //*
+			mult(fc);
+		break;
+		case 18:	// /
+			div_(fc);
+		break;
+		case 19:	// mod
+			mod_(fc);
+		break;
 			//nop
 	}
 }
@@ -298,14 +347,20 @@ void make_words(forth_context_type* fc)
 	size_t here_cfa =	add_primitive(fc,"here",0,2);
 	size_t rd_cfa =		add_primitive(fc,"@",0,6);
 	size_t wr_cfa =		add_primitive(fc,"!",0,7);
-	size_t compile_cfa= add_primitive(fc,"compile",0,5);
+	size_t compile_cfa=	add_primitive(fc,"compile",0,5);
 	size_t to_rp_cfa= 	add_primitive(fc,">r",0,8);
-	size_t from_rp_cfa= add_primitive(fc,"r>",0,9);
+	size_t from_rp_cfa=	add_primitive(fc,"r>",0,9);
 	size_t at_rp_cfa= 	add_primitive(fc,"r@",0,10);
 	size_t dup_cfa= 	add_primitive(fc,"dup",0,11);
 	size_t swap_cfa= 	add_primitive(fc,"swap",0,12);
 	size_t branch_cfa= 	add_primitive(fc,"branch",0,13);
 	size_t pbranch_cfa=	add_primitive(fc,"?branch",0,14);
+	size_t plus_cfa=	add_primitive(fc,"+",0,15);
+	size_t minus_cfa=	add_primitive(fc,"-",0,16);
+	size_t mul_cfa=		add_primitive(fc,"*",0,17);
+	size_t div_cfa=		add_primitive(fc,"/",0,18);
+	size_t mod_cfa=		add_primitive(fc,"mod",0,19);
+	
 }
 
 forth_context_type* forth_init(void)
