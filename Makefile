@@ -1,5 +1,5 @@
 compiler:= gcc
-cflags:= -O2 -pipe -Wall
+cflags:= -O2 -pipe -Wall -g
 includes:= -I ./
 libdir:= -L ./
 link:= -lm 

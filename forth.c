@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdarg.h>
 #include "forth.h"
 
 
@@ -147,7 +149,7 @@ void swap(forth_context_type* fc)
 
 void lit(forth_context_type* fc)
 {
-	size_t *tmp;
+	size_t* tmp;
 	tmp=(size_t*)*fc->RP;
 	push_sp(fc,*tmp);
 	*fc->RP=(size_t)(tmp+1);
@@ -212,6 +214,20 @@ void mod_(forth_context_type* fc)
 	*fc->SP%=tmp;
 }
 
+void key(forth_context_type* fc)
+{
+	*(--fc->SP)=getc(stdin);
+}
+
+void emit(forth_context_type* fc)
+{
+	putc(*(fc->SP++),stdout);
+}
+
+void die(forth_context_type* fc)
+{
+	fc->stop=1;
+}
 
 void add_header(forth_context_type* fc, const char *name, char flags)
 {
@@ -219,12 +235,13 @@ void add_header(forth_context_type* fc, const char *name, char flags)
 	size_t link;
 	char *here;
 	
-	here=(char*)*fc->here_ptr;
 	align(fc);
+	here=(char*)*fc->here_ptr;
 	link=(size_t)here;
 	counter=strlen(name);
 	add_byte(fc,flags);
 	add_byte(fc,counter);
+	here=(char*)*fc->here_ptr;
 	strcpy(here,name);
 	here+=counter;
 	*fc->here_ptr=(size_t)here;
@@ -250,6 +267,22 @@ size_t add_variable(forth_context_type* fc, const char *name, char flags, size_t
 	CFA=(size_t)*fc->here_ptr;
 	add_cell(fc,4);     // var
 	add_cell(fc,val);
+	return CFA;
+}
+
+size_t add_definition(forth_context_type* fc, const char *name, char flags, int num, ...)
+{
+	size_t CFA;
+	va_list ap;
+	int i;
+	
+	add_header(fc,name,flags);
+	CFA=(size_t)*fc->here_ptr;
+	add_cell(fc,0);     // :
+	va_start (ap, num);
+	for(i=0;i<num;i++)
+		add_cell(fc,va_arg(ap,size_t));
+	va_end(ap);
 	return CFA;
 }
 
@@ -314,6 +347,15 @@ void interpret_primitive(forth_context_type* fc, size_t f)
 		case 19:	// mod
 			mod_(fc);
 		break;
+		case 20:	//key
+			key(fc);
+		break;
+		case 21:	//emit
+			emit(fc);
+		break;
+		case 22:	//die
+			die(fc);
+		break;
 			//nop
 	}
 }
@@ -325,7 +367,7 @@ void forth_main_loop(forth_context_type* fc)
 	while(fc->stop==0)
 	{
 		CFA=*(size_t*)(*fc->PC);
-		push_rp(fc,(size_t)fc->PC+1);		// PC+1 -> RP
+		push_rp(fc,(size_t)(fc->PC+1));		// PC+1 -> RP
 		if(CFA==0)  //: definition
 		{
 			fc->PC=(size_t*)(CFA+fc->cell);  //PC=PFA
@@ -333,18 +375,23 @@ void forth_main_loop(forth_context_type* fc)
 		else
 		{					// primitive
 			interpret_primitive(fc,CFA);
-			fc->PC=(size_t*)(*fc->RP++);   // PC <- RP
+			fc->PC=(size_t*)(*(fc->RP++));   // PC <- RP
 		}
 	}
 }
 
+void forth_execute_def(forth_context_type* fc, size_t CFA)
+{
+	fc->PC=(size_t*)(CFA+fc->cell);
+	forth_main_loop(fc);
+}
 
-
-void make_words(forth_context_type* fc)
+size_t make_words(forth_context_type* fc)
 {
 	size_t state_cfa =	add_variable (fc,"state",0,0);
 	size_t lit_cfa =	add_primitive(fc,"lit",0,1);
 	size_t here_cfa =	add_primitive(fc,"here",0,2);
+	size_t endw_cfa =	add_primitive(fc,";s",0,3);
 	size_t rd_cfa =		add_primitive(fc,"@",0,6);
 	size_t wr_cfa =		add_primitive(fc,"!",0,7);
 	size_t compile_cfa=	add_primitive(fc,"compile",0,5);
@@ -360,23 +407,36 @@ void make_words(forth_context_type* fc)
 	size_t mul_cfa=		add_primitive(fc,"*",0,17);
 	size_t div_cfa=		add_primitive(fc,"/",0,18);
 	size_t mod_cfa=		add_primitive(fc,"mod",0,19);
-	
+	size_t key_cfa=		add_primitive(fc,"key",0,20);
+	size_t emit_cfa=	add_primitive(fc,"emit",0,21);
+	size_t die_cfa=		add_primitive(fc,"die",0,22);
+
+	size_t tst_cfa=add_definition(fc,"test",0,5,lit_cfa,65,emit_cfa,die_cfa,endw_cfa);
+	return tst_cfa;
+}
+
+void forth_print_cells(size_t* adr, size_t N)
+{
+	while(N--)	printf("0x%lX\n",(unsigned long int)*(adr++));
 }
 
 forth_context_type* forth_init(void)
 {
 	forth_context_type* fc;
+	size_t init_cfa;
 	fc=malloc(sizeof(forth_context_type));  //should i check this?
 	fc->mem=malloc(MEM_SIZE);
 	fc->cell=sizeof(size_t);
 	fc->stop=0;
-	fc->SP=(size_t*)(fc->mem+STACK_DEPTH*fc->cell);
-	fc->RP=(size_t*)(fc->mem+STACK_DEPTH*fc->cell*2);
-	fc->begin=(char*)fc->RP+fc->cell;
+	fc->SP=(size_t*)(fc->mem+STACK_DEPTH);
+	fc->RP=(size_t*)(fc->mem+STACK_DEPTH*2);
+	fc->begin=(char*)fc->RP+1;
 	fc->here_ptr=(size_t*)fc->begin;
-	fc->latest_ptr=(size_t*)fc->begin+fc->cell;
+	fc->latest_ptr=(size_t*)fc->begin+1;
 	*fc->latest_ptr=0;
 	*fc->here_ptr=(size_t)fc->begin+fc->cell*2;
-	make_words(fc);
+	init_cfa=make_words(fc);
+
+	forth_execute_def(fc,init_cfa);
 	return fc;
 }
