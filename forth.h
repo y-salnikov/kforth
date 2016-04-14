@@ -11,6 +11,7 @@ typedef struct forth_context_struct
 	size_t *here_ptr;
 	size_t *latest_ptr;
 	char	stop;
+	size_t die_cfa;
 	
 }forth_context_type;
 

@@ -380,10 +380,21 @@ void forth_main_loop(forth_context_type* fc)
 	}
 }
 
-void forth_execute_def(forth_context_type* fc, size_t CFA)
+void forth_execute_word(forth_context_type* fc, size_t CFA)
 {
-	fc->PC=(size_t*)(CFA+fc->cell);
-	forth_main_loop(fc);
+	size_t die_;
+	die_=fc->die_cfa;
+	
+	*(--fc->RP)=(size_t)&die_;
+	if(*(size_t*)CFA)
+	{
+		interpret_primitive(fc,*(size_t*)CFA);
+	}
+	else
+	{
+		fc->PC=(size_t*)(CFA+fc->cell);
+		forth_main_loop(fc);
+	}
 }
 
 size_t make_words(forth_context_type* fc)
@@ -409,9 +420,10 @@ size_t make_words(forth_context_type* fc)
 	size_t mod_cfa=		add_primitive(fc,"mod",0,19);
 	size_t key_cfa=		add_primitive(fc,"key",0,20);
 	size_t emit_cfa=	add_primitive(fc,"emit",0,21);
-	size_t die_cfa=		add_primitive(fc,"die",0,22);
+	fc->die_cfa=		add_primitive(fc,"die",0,22);
+	
 
-	size_t tst_cfa=add_definition(fc,"test",0,5,lit_cfa,65,emit_cfa,die_cfa,endw_cfa);
+	size_t tst_cfa=add_definition(fc,"test",0,4,lit_cfa,65,emit_cfa,endw_cfa);
 	return tst_cfa;
 }
 
@@ -437,6 +449,6 @@ forth_context_type* forth_init(void)
 	*fc->here_ptr=(size_t)fc->begin+fc->cell*2;
 	init_cfa=make_words(fc);
 
-	forth_execute_def(fc,init_cfa);
+	forth_execute_word(fc,init_cfa);
 	return fc;
 }
