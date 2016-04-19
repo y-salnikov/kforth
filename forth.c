@@ -271,6 +271,95 @@ void cwr(forth_context_type* fc)
 	*cadr=(val & 0xff);
 }
 
+void allot(forth_context_type* fc)
+{
+	*fc->here_ptr+=*(fc->SP++);
+}
+
+void coma(forth_context_type* fc)
+{
+	add_cell(fc,*(fc->SP++));
+}
+
+void word(forth_context_type* fc)
+{
+	char del, *buf, *here, *count;
+	size_t offset,blk;
+	here=(char*)*fc->here_ptr;
+	count=here++;
+	del=*(fc->SP++); //delimeter
+	offset=*(size_t *)(fc->in_cfa+fc->cell);  // >in @
+	blk=*(size_t *)(fc->blk_cfa+fc->cell);
+	if (blk) buf=fc->block_buf;
+	else buf=(char*)(fc->tib_cfa+fc->cell); // tib 
+	*count=0;
+	while( (buf[offset]==del) && (offset<=TIB_SIZE) && (buf[offset]!=0)) offset++;
+	while( (buf[offset]!=del) && (offset<=TIB_SIZE) && (buf[offset]!=0))
+	{
+		*(here++)=buf[offset++];
+		(*count)++;
+	}
+	*fc->here_ptr=(size_t)here;
+	*(size_t*)(fc->in_cfa+fc->cell)=offset;
+	*(--fc->SP)=(size_t)count;
+}
+
+void type(forth_context_type* fc)
+{
+	size_t length;
+	char *adr;
+	
+	length=*(fc->SP++);
+	adr=(char *)*(fc->SP++);
+	while(length--)
+	{
+		*(--fc->SP)=*(adr++);
+		emit(fc);
+	}
+}
+
+void find(forth_context_type* fc)
+{
+	char *word_ptr;
+	char flags, count, *name,m,*tmpl_name,tmpl_count, *tmpl;
+	size_t CFA,*LFA;
+	word_ptr=(char *)*(fc->latest_ptr);
+	
+	tmpl=(char*)*(fc->SP++);
+	tmpl_count=*tmpl;
+	tmpl_name=(tmpl+1);
+	
+	while(word_ptr!=NULL)
+	{
+		flags=*(word_ptr++);
+		count=*(word_ptr++);
+		name=word_ptr; word_ptr+=count;
+		word_ptr++;
+		m=((size_t)word_ptr) % fc->cell;
+		if(m)	word_ptr+=(fc->cell-m);
+		LFA=(size_t*)word_ptr;  word_ptr+=fc->cell;
+		CFA=(size_t)word_ptr;
+		word_ptr=(char*)*LFA;
+		if(count==tmpl_count)
+		{
+			if(strncasecmp(name,tmpl_name,tmpl_count)==0)
+			{
+				break;
+			}
+		}
+	}
+	if(word_ptr==NULL)
+	{
+		*(--fc->SP)=(size_t)tmpl;
+		*(--fc->SP)=0;
+	}
+	else
+	{
+		*(--fc->SP)=CFA;
+		if(flags & IMMEDIATE) *(--fc->SP)=1;
+		else *(--fc->SP)=(size_t)(-1);
+	}
+}
 
 void add_header(forth_context_type* fc, const char *name, char flags)
 {
@@ -340,6 +429,8 @@ size_t add_constant(forth_context_type* fc, const char *name, size_t val)
 }
 
 
+
+
 void interpret_primitive(forth_context_type* fc, size_t f)
 {
 	switch(f)
@@ -372,6 +463,10 @@ void interpret_primitive(forth_context_type* fc, size_t f)
 		case 26:				xor(fc);		break; //xor	
 		case 27:				crd(fc);		break; //c@	
 		case 28:				cwr(fc);		break; //c!	
+		case 29:				allot(fc);		break; //allot
+		case 30:				coma(fc);		break; //,
+		case 31:				word(fc);		break; //word
+		case 32:				type(fc);		break; // type
 			//nop
 	}
 }
@@ -426,6 +521,10 @@ void forth_print_cells(size_t* adr, size_t N)
 size_t make_words(forth_context_type* fc)
 {
 	size_t state_cfa =	add_variable (fc,"state",0);
+	fc->blk_cfa=		add_variable (fc,"blk",0);
+	fc->in_cfa=			add_variable (fc,">in",0);
+	size_t sp0_cfa=		add_constant (fc, "sp0", (size_t)fc->SP);
+	size_t rp0_cfa=		add_constant (fc, "rp0", (size_t)fc->RP);
 	size_t lit_cfa =	add_primitive(fc,"lit",0,1);
 	size_t here_cfa =	add_primitive(fc,"here",0,2);
 	size_t endw_cfa =	add_primitive(fc,";s",0,3);
@@ -453,15 +552,29 @@ size_t make_words(forth_context_type* fc)
 	size_t crd_cfa=		add_primitive(fc,"c@",0,27);
 	size_t cwr_cfa=		add_primitive(fc,"c!",0,28);
 	size_t latest_cfa=	add_constant (fc, "latest",(size_t)fc->latest_ptr);
+	size_t cell_cfa=	add_constant (fc,"cell",fc->cell);
+	size_t allot_cfa=	add_primitive(fc,"allot",0,29);
+	size_t coma_cfa=	add_primitive(fc,",",0,30);
+	fc->tib_cfa=		add_variable (fc, "tib", 0);
+	*(--fc->SP)=TIB_SIZE;
+	forth_execute_word(fc,allot_cfa);
+	size_t word_cfa=	add_primitive(fc,"word",0,31);
+	size_t type_cfa=	add_primitive(fc,"type",0,32);
+	
 	// : immediate IMMEDIATE_FLAG latest @ c@ or latest @ c! ; 
 	size_t immediate_cfa= add_definition(fc,"immediate",IMMEDIATE, 10 , lit_cfa, IMMEDIATE, latest_cfa, rd_cfa, crd_cfa, or_cfa, 
 	                                                                    latest_cfa, rd_cfa, cwr_cfa, endw_cfa );
-	size_t cell_cfa=	add_constant (fc,"cell",fc->cell);
+	// : >mark here cell allot ; 
+	size_t to_mark_cfa=   add_definition(fc,">mark", 0 , 4 , here_cfa, cell_cfa, allot_cfa, endw_cfa);
+	// : >resolve here swap ! ;
+	size_t to_resolve_cfa=add_definition(fc,">resolve", 0 , 4 , here_cfa, swap_cfa, wr_cfa, endw_cfa);
+	// : <mark here ;
+	size_t from_mark_cfa =add_definition(fc,"<mark", 0 , 2 , here_cfa, endw_cfa);
+	// : <resolve , ; 
+	size_t from_resolve_cfa= add_definition(fc,"<resolve", 0 , 2, coma_cfa, endw_cfa);
 	
-	// : >mark here cell allot; immediate
-//	size_t to_mark_cfa= add_definition(fc,">mark",IMMEDIATE,  , 
-	size_t tst2_cfa=     add_definition(fc,"test2",0,1,endw_cfa);
-	return tst2_cfa;
+	size_t init_cfa= add_definition(fc,"init",0,1,endw_cfa);
+	return init_cfa;
 }
 
 
@@ -470,19 +583,22 @@ forth_context_type* forth_init(void)
 {
 	forth_context_type* fc;
 	size_t init_cfa;
-	fc=malloc(sizeof(forth_context_type));  //should i check this?
-	fc->mem=malloc(MEM_SIZE);
-	fc->cell=sizeof(size_t);
-	fc->stop=0;
-	fc->SP=(size_t*)(fc->mem+STACK_DEPTH);
-	fc->RP=(size_t*)(fc->mem+STACK_DEPTH*2);
-	fc->begin=(char*)fc->RP+1;
-	fc->here_ptr=(size_t*)fc->begin;
-	fc->latest_ptr=(size_t*)fc->begin+1;
-	*fc->latest_ptr=0;
-	*fc->here_ptr=(size_t)fc->begin+fc->cell*2;
-	init_cfa=make_words(fc);
-
-	forth_execute_word(fc,init_cfa);
+	fc=malloc(sizeof(forth_context_type));
+	if(fc)
+	{
+		fc->mem=malloc(MEM_SIZE);
+		fc->cell=sizeof(size_t);
+		fc->stop=0;
+		fc->SP=(size_t*)(fc->mem+STACK_DEPTH);
+		fc->RP=(size_t*)(fc->mem+STACK_DEPTH*2);
+		fc->begin=(char*)fc->RP+1;
+		fc->here_ptr=(size_t*)fc->begin;
+		fc->latest_ptr=(size_t*)fc->begin+1;
+		*fc->latest_ptr=0;
+		*fc->here_ptr=(size_t)fc->begin+fc->cell*2;
+		init_cfa=make_words(fc);
+	
+		forth_execute_word(fc,init_cfa);
+	}
 	return fc;
 }
