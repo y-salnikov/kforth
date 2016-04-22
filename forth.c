@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <errno.h>
 #include "forth.h"
 
 
@@ -82,7 +83,7 @@ void align(forth_context_type* fc)
 	*fc->here_ptr=(size_t)here;
 }
 
-void here(forth_context_type* fc)
+void here_(forth_context_type* fc)
 {
 	push_sp(fc,(size_t)*fc->here_ptr);
 }
@@ -284,17 +285,25 @@ void coma(forth_context_type* fc)
 void word(forth_context_type* fc)
 {
 	char del, *buf, *here, *count;
-	size_t offset,blk;
+	size_t offset,blk,length;
 	here=(char*)*fc->here_ptr;
 	count=here++;
 	del=*(fc->SP++); //delimeter
 	offset=*(size_t *)(fc->in_cfa+fc->cell);  // >in @
 	blk=*(size_t *)(fc->blk_cfa+fc->cell);
-	if (blk) buf=fc->block_buf;
-	else buf=(char*)(fc->tib_cfa+fc->cell); // tib 
+	if (blk)
+	{
+		buf=fc->block_buf;
+		length=fc->block_length; 
+	}
+	else 
+	{
+		buf=(char*)(fc->tib_cfa+fc->cell); // tib 
+		length=TIB_SIZE;
+	}
 	*count=0;
-	while( (buf[offset]==del) && (offset<=TIB_SIZE) && (buf[offset]!=0)) offset++;
-	while( (buf[offset]!=del) && (offset<=TIB_SIZE) && (buf[offset]!=0))
+	while( (buf[offset]==del) && (offset<=length) ) offset++;
+	while( (buf[offset]!=del) && (offset<=length) )
 	{
 		*(here++)=buf[offset++];
 		(*count)++;
@@ -359,6 +368,32 @@ void find(forth_context_type* fc)
 		if(flags & IMMEDIATE) *(--fc->SP)=1;
 		else *(--fc->SP)=(size_t)(-1);
 	}
+}
+
+void drop(forth_context_type* fc)
+{
+	fc->SP++;
+}
+
+void number(forth_context_type* fc)
+{
+	size_t base,result;
+	char *str;
+	char length;
+	base=*(size_t *)(fc->base_cfa+fc->cell);
+	str=(char *)*(fc->SP++);
+	length=*(str++);
+	if(base==10) base=0;
+	*(str+length)=0;
+	errno=0;
+	result=strtol(str,NULL,base);
+	if(errno)	fc->error=1;
+	else
+	{
+		fc->error=0;
+		*(--fc->SP)=result;
+	}
+	
 }
 
 void add_header(forth_context_type* fc, const char *name, char flags)
@@ -436,7 +471,7 @@ void interpret_primitive(forth_context_type* fc, size_t f)
 	switch(f)
 	{
 		case 1:					lit(fc); 		break; //lit
-		case 2:		 			here(fc); 		break; //here
+		case 2:		 			here_(fc); 		break; //here
 		case 3:		 			endw(fc); 		break; //endw
 		case 4:		  			var(fc); 		break; //variable
 		case 5:					cmpl(fc);		break; //compile
@@ -467,6 +502,8 @@ void interpret_primitive(forth_context_type* fc, size_t f)
 		case 30:				coma(fc);		break; //,
 		case 31:				word(fc);		break; //word
 		case 32:				type(fc);		break; // type
+		case 33:				drop(fc);		break; // drop
+		case 34:				execute(fc);	break; // execute
 			//nop
 	}
 }
@@ -513,6 +550,14 @@ void forth_execute_word(forth_context_type* fc, size_t CFA)
 	}
 }
 
+void execute(forth_context_type* fc)
+{
+	size_t CFA;
+	
+	CFA=*(fc->SP++);
+	*(--fc->RP)=&CFA;
+}
+
 void forth_print_cells(size_t* adr, size_t N)
 {
 	while(N--)	printf("0x%lX\n",(unsigned long int)*(adr++));
@@ -523,6 +568,7 @@ size_t make_words(forth_context_type* fc)
 	size_t state_cfa =	add_variable (fc,"state",0);
 	fc->blk_cfa=		add_variable (fc,"blk",0);
 	fc->in_cfa=			add_variable (fc,">in",0);
+	fc->base_cfa=		add_variable (fc,"base",10);
 	size_t sp0_cfa=		add_constant (fc, "sp0", (size_t)fc->SP);
 	size_t rp0_cfa=		add_constant (fc, "rp0", (size_t)fc->RP);
 	size_t lit_cfa =	add_primitive(fc,"lit",0,1);
@@ -560,7 +606,8 @@ size_t make_words(forth_context_type* fc)
 	forth_execute_word(fc,allot_cfa);
 	size_t word_cfa=	add_primitive(fc,"word",0,31);
 	size_t type_cfa=	add_primitive(fc,"type",0,32);
-	
+	size_t drop_cfa=	add_primitive(fc,"drop",0,33);
+	size_t exec_cfa=	add_primitive(fc,"execute",0,34);
 	// : immediate IMMEDIATE_FLAG latest @ c@ or latest @ c! ; 
 	size_t immediate_cfa= add_definition(fc,"immediate",IMMEDIATE, 10 , lit_cfa, IMMEDIATE, latest_cfa, rd_cfa, crd_cfa, or_cfa, 
 	                                                                    latest_cfa, rd_cfa, cwr_cfa, endw_cfa );
@@ -572,6 +619,9 @@ size_t make_words(forth_context_type* fc)
 	size_t from_mark_cfa =add_definition(fc,"<mark", 0 , 2 , here_cfa, endw_cfa);
 	// : <resolve , ; 
 	size_t from_resolve_cfa= add_definition(fc,"<resolve", 0 , 2, coma_cfa, endw_cfa);
+	add_definition(fc,"end_str",IMMEDIATE,3,from_rp_cfa, drop_cfa,endw_cfa);  // stop interpretation when reach terminating null
+	
+	
 	
 	size_t init_cfa= add_definition(fc,"init",0,1,endw_cfa);
 	return init_cfa;

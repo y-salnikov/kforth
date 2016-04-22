@@ -16,6 +16,9 @@ typedef struct forth_context_struct
 	size_t in_cfa;
 	size_t blk_cfa;
 	char *block_buf;
+	size_t block_length;
+	size_t base_cfa;
+	size_t error;
 	
 }forth_context_type;
 
