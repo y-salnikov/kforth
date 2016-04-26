@@ -232,6 +232,10 @@ void forth_vm_execute_instruction(forth_context_type *fc, char cmd)
 		case 'i': in(fc);					break; // key
 		case 'o': out(fc);					break; // emit
 		case '_': fc->stop=1;				break; // stop
+		case 1:	  push(fc,fc->SP);			break; // SP@
+		case 2:	  fc->SP=pop(fc);			break; // SP!
+		case 3:	  push(fc,fc->RP);			break; // RP@
+		case 4:	  fc->RP=pop(fc);			break; // RP!
 	}
 }
 

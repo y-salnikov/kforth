@@ -1,8 +1,27 @@
 #!/usr/bin/python2
 # -*- coding: utf-8 -*-
 
+cell=8 # for 64bit
+
+
 img=bytearray()
 stack=[]
+
+def pair(n):
+	if n!=stack.pop():
+		print("unpaired operator")
+		exit(1)
+
+def add_cell(val):
+	tmp=val
+	for i in xrange(cell):
+		img.append(tmp>>(i*8) & 0xff)
+
+def write_cell(adr,val):
+	tmp=val
+	for i in xrange(cell):
+		img[adr+i]=(tmp>>(i*8) & 0xff)
+
 
 pvoc={	"0":		 	['0'],
 		"1": 			['1'],
@@ -36,9 +55,17 @@ pvoc={	"0":		 	['0'],
 		"(r>)":			['f'],
 		"(key)":		['i'],
 		"(emit)":		['o'],
+		"(SP@)":		[chr(1)],
+		"(SP!)":		[chr(2)],
+		"(RP@)":		[chr(3)],
+		"(RP!)":		[chr(4)],
 		"(stop)":		['_'],	# ---------------------------------------
 		"(over)":		["sDtsf"],
 		"(2dup)":		["DtsDts"],
+		"(if)":			["?", lambda: stack.append(len(img)), lambda:stack.append(2),lambda: add_cell(0)],
+		"(then)":		[lambda: pair(2), lambda: write_cell(stack.pop(),len(img))],
+		"(else)":		[lambda: pair(2),"b", lambda: add_cell(0), lambda: write_cell(stack.pop(),len(img)), lambda: stack.append(len(img)-cell), stack.append(2)],
+
 		}
 
 
@@ -57,4 +84,10 @@ def compile_str(s):
 		w=w.strip()
 		if len(w)>0:
 			compile_word(w)
+
+def main():
+	pass
+
+main()
+
 
