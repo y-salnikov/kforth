@@ -96,8 +96,26 @@ def compile_str(s):
 		if len(w)>0:
 			compile_word(w)
 
-def init_code_compile():
-	pass
+def init_code_compile(sp0,rp0,word):
+	adr=0;
+	img[adr]='l'
+	adr+=1
+	write_cell(adr,sp0)
+	adr+=cell
+	img[adr]=2 #sp!
+	adr+=1
+	img[adr]='l'
+	adr+=1
+	write_cell(adr,rp0)
+	adr+=cell
+	img[adr]=4 #sp!
+	adr+=1
+	img[adr]='c'
+	adr+=1
+	write_cell(adr,word)
+	adr+=cell
+	img[adr]='_'
+	adr+=1
 
 # memory map
 # 0 init code
@@ -158,7 +176,6 @@ def main():
 	global current
 	global context
 	global dp
-	init_code_compile()
 	for i in xrange(stack_depth): add_cell(0)
 	sp0_val=len(img)
 	for i in xrange(stack_depth): add_cell(0)
@@ -176,7 +193,8 @@ def main():
 	add_const("dp",dp.adr)
 	add_const("sp0",sp0.adr)
 	add_const("rp0",rp0.adr)
-
+	
+	init_code_compile(sp0_val,rp0_val,0) # 0 - cfa+1 of init word
 	print pvoc.keys()
 main()
 
