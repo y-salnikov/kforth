@@ -13,7 +13,6 @@ typedef struct forth_context_struct
 
 
 #define MEM_SIZE 1024*1024*1 //1M initial memory size
-#define STACK_DEPTH 256		// in cells
 #define TIB_SIZE	1024    // max line length
 #define IMMEDIATE	1
 

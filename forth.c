@@ -6,13 +6,13 @@
 #include <errno.h>
 #include "forth.h"
 
-/* +-------------------------------------------------------------------+
- * |           NFA             |           CFA             |   PFA     |  
- * +-------+--------+----------+----------+----------+-----+-----------+
- * | flags | length |   name   | c_length |  code    | ret | code/data |
- * +-------+--------+----------+----------+----------+-----+-----------+
- * | 1b    |  1b    | length b |    1b    |clength b | 1b  |   ?b      |
- * +-------+--------+----------+----------+----------+-----+-----------+
+/* +------------------------------------+----------+---------------------------+-----------+
+ * |                 NFA                |   LFA    |           CFA             |   PFA     |  
+ * +-------+--------+----------+--------+----------+----------+----------+-----+-----------+
+ * | flags | length |   name   | length |   link   | c_length |  code    | ret | code/data |
+ * +-------+--------+----------+--------+----------+----------+----------+-----+-----------+
+ * | 1b    |  1b    | length b |   1b   |  1 cell  |    1b    |c_length b| 1b  |   ?b      |
+ * +-------+--------+----------+--------+----------+----------+----------+-----+-----------+
  */
 
 
@@ -170,6 +170,23 @@ void eq(forth_context_type *fc)
 	*(size_t *)(fc->mem+(fc->SP))= (val1 == val2) ? -1 : 0;
 }
 
+void at(forth_context_type *fc)
+{
+	size_t val;
+	val=*(size_t *)(fc->mem+(fc->SP));
+	*(size_t *)(fc->mem+(fc->SP))=*(size_t *)(fc->mem+val);
+}
+
+void to(forth_context_type *fc)
+{
+	size_t adr,val;
+	adr=*(size_t *)(fc->mem+(fc->SP)); fc->SP+=fc->cell;
+	val=*(size_t *)(fc->mem+(fc->SP)); fc->SP+=fc->cell;
+	
+	*(size_t *)(fc->mem+adr)=val;
+}
+
+
 void to_r(forth_context_type *fc)
 {
 	fc->RP-=fc->cell;
@@ -209,6 +226,8 @@ void forth_vm_execute_instruction(forth_context_type *fc, char cmd)
 		case '7': push(fc,7);				break;
 		case '8': push(fc,8);				break;
 		case '9': push(fc,9);				break;
+		case '@': at(fc);					break; //@
+		case '!': to(fc);					break; //!
 		case 'd': fc->SP+=fc->cell;			break; //drop
 		case 'D': dup(fc);					break; //dup
 		case 's': swap(fc);					break; //swap
