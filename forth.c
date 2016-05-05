@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <errno.h>
 #include "forth.h"
+#include "forth_img.h"
 
 /* +------------------------------------+----------+---------------------------+-----------+
  * |                 NFA                |   LFA    |           CFA             |   PFA     |  
@@ -48,11 +49,15 @@ void swap(forth_context_type *fc)
 
 size_t next_cell(forth_context_type *fc)
 {
-	size_t val;
+	size_t val,val_;
 	char i;
 	
 	val=0;
-	for(i=0;i<fc->cell;i++) val|=*(fc->mem+(fc->PC++))<<(8*i);
+	for(i=0;i<fc->cell;i++)
+	{
+		val_=(*(fc->mem+(fc->PC++)));
+		val|=val_<<(8*i);
+	}
 	return val;
 }
 
@@ -214,6 +219,8 @@ void out(forth_context_type *fc)
 
 void forth_vm_execute_instruction(forth_context_type *fc, char cmd)
 {
+//	printf("%c\n",cmd);
+//	getchar();
 	switch(cmd)
 	{
 		case '0': push(fc,0);				break;
@@ -270,14 +277,17 @@ void forth_vm_main_loop(forth_context_type *fc)
 
 forth_context_type* forth_init(void)
 {
+	size_t i;
 	forth_context_type* fc;
 	fc=malloc(sizeof(forth_context_type));
 	if(fc)
 	{
 		fc->mem=malloc(MEM_SIZE);
+		for(i=0;i<forth_img_length;i++) fc->mem[i]=forth_img[i];
 		fc->cell=sizeof(size_t);
-		
+		fc->PC=0;
 		fc->stop=0;
+		forth_vm_main_loop(fc);
 	}
 	return fc;
 }

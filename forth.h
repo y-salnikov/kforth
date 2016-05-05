@@ -1,7 +1,7 @@
 
 typedef struct forth_context_struct
 {
-	char *mem;
+	unsigned char *mem;
 	char cell;
 	size_t mem_size;
 	size_t SP;

@@ -32,16 +32,16 @@ class headless_var():
 		add_cell(value)
 
 
-pvoc={	"0":		 	['0'],
-		"1": 			['1'],
-		"2": 			['2'],
-		"3": 			['3'],
-		"4": 			['4'],
-		"5": 			['5'],
-		"6": 			['6'],
-		"7": 			['7'],
-		"8": 			['8'],
-		"9": 			['9'],
+pvoc={	"(0)":		 	['0'],
+		"(1)": 			['1'],
+		"(2)": 			['2'],
+		"(3)": 			['3'],
+		"(4)": 			['4'],
+		"(5)": 			['5'],
+		"(6)": 			['6'],
+		"(7)": 			['7'],
+		"(8)": 			['8'],
+		"(9)": 			['9'],
 		"(@)":			['@'],
 		"(!)":			['!'],
 		"(drop)":		['d'],
@@ -72,15 +72,22 @@ pvoc={	"0":		 	['0'],
 		"(RP!)":		[chr(4)],
 		"(stop)":		['_'],	# ---------------------------------------
 		"(over)":		["sDtsf"],
-		"(2dup)":		["DtsDts"],
-		"(if)":			["?", lambda: stack.append(len(img)), lambda:stack.append(2),lambda: add_cell(0)],
-		"(then)":		[lambda: pair(2), lambda: write_cell(stack.pop(),len(img))],
-		"(else)":		[lambda: pair(2),"b", lambda: add_cell(0), lambda: write_cell(stack.pop(),len(img)), lambda: stack.append(len(img)-cell), lambda:stack.append(2)],
-
+		"(2dup)":		["DtsDtsff"],
+		"(if)":			["?", 							lambda: stack.append(len(img)), lambda:stack.append(2),						lambda: add_cell(0)],
+		"(then)":		[lambda: pair(2), 				lambda: write_cell(stack.pop(),	len(img))],
+		"(else)":		[lambda: pair(2),"b", 			lambda: add_cell(0), 			lambda: write_cell(stack.pop(),len(img)), 	lambda: stack.append(len(img)-cell), lambda:stack.append(2)],
+		"(begin)":		[lambda: stack.append(len(img)),lambda: stack.append(1)],
+		"(until)":		[lambda: pair(1),				"?",							lambda:add_cell(stack.pop())],
+		"(do)":			["stt",							lambda:stack.append(len(img)), 	lambda:stack.append(3)],
+		"(loop)":		[lambda: pair(3),				"f1+DfDtsf=stst?",				lambda:add_cell(stack.pop()), "ffdd"],
+		"(i)":			["fDt"],
+		"(j)":			["fffDtstst"],
+		
 		}
 
 
 def compile_word(word):
+	offset=len(img)
 	if word in pvoc.keys():
 		actions=pvoc[word]
 		for act in actions:
@@ -89,12 +96,19 @@ def compile_word(word):
 			else:								# compile
 				if type(act) is str:
 					for s in act: img.append(s)
+	else:
+		if word.isdigit():
+			img.append('l')
+			add_cell(int(word))
+	return len(img)-offset
 
 def compile_str(s):
+	length=0;
 	for w in s.split(' '):
 		w=w.strip()
 		if len(w)>0:
-			compile_word(w)
+			length+=compile_word(w)
+	return length
 
 def init_code_compile(sp0,rp0,word):
 	adr=0;
@@ -143,6 +157,7 @@ def add_header(name,flags,link=None):
 	write_cell(read_cell(current.adr),NFA)
 	write_cell(dp.adr,len(img))
 
+
 def add_const(name,value,link=None):
 	add_header(name,0,link)
 	code_length=cell+2
@@ -155,7 +170,8 @@ def add_const(name,value,link=None):
 	img.append('r')
 	write_cell(adr,len(img))
 	add_cell(value)
-	pvoc[name]=img[code_adr:code_adr+code_length]
+	pvoc[name]=[img[code_adr:code_adr+code_length]]
+	write_cell(dp.adr,len(img))
 
 def add_var(name,value,link=None):
 	add_header(name,0,link)
@@ -168,7 +184,52 @@ def add_var(name,value,link=None):
 	img.append('r')
 	write_cell(adr,len(img))
 	add_cell(value)
-	pvoc[name]=img[code_adr:code_adr+code_length]
+	pvoc[name]=[str(img[code_adr:code_adr+code_length])]
+	write_cell(dp.adr,len(img))
+
+def add_primitive(name,flags,string):
+	add_header(name,flags)
+	code_length_adr=len(img)
+	img.append(0)
+	code_length=compile_str(string)
+	if code_length>255:
+		print "Primitive code is too long."
+		exit(1)
+	img[code_length_adr]=code_length;
+	img.append('r')
+	pvoc[name]=[str(img[code_length_adr+1:code_length_adr+1+code_length])]
+	write_cell(dp.adr,len(img))
+	return code_length_adr
+
+def add_word(name,flags,string):
+	add_header(name,flags)
+	code_length=cell+1
+	img.append(code_length)
+	code_adr=len(img)
+	img.append('c')
+	add_cell(len(img)+cell+1)
+	img.append('r')
+	compile_str(string)
+	img.append('r')
+	pvoc[name]=[str(img[code_adr:code_adr+code_length])]
+	write_cell(dp.ard,len(img))
+	return code_length_adr
+
+
+def output_to_h(arr):
+	f=open("forth_img.h","w")
+	f.write("//forth image\n")
+	f.write("char forth_img[]={ \n")
+	s=""
+	for i in xrange(len(arr)):
+		if (arr[i]>31) and (arr[i]<ord('z')) and (arr[i] not in [34,39,92]): s+=" '%c'," %(arr[i])
+		else: 	s+="0x%02X," %(arr[i])
+		if (i%16)==15: s+="\n"
+		else: s+=" "
+	f.write(s[:-2])
+	f.write("\n};\n")
+	f.write("size_t forth_img_length=%d;\n" %(len(arr)))
+	f.close()
 
 def main():
 	global sp0
@@ -193,9 +254,53 @@ def main():
 	add_const("dp",dp.adr)
 	add_const("sp0",sp0.adr)
 	add_const("rp0",rp0.adr)
+	add_primitive("here",0,"dp (@)")
+	add_var("base",10)
+	add_primitive("0",0,"(0)")
+	add_primitive("1",0,"(1)")
+	add_primitive("2",0,"(2)")
+	add_primitive("3",0,"(3)")
+	add_primitive("4",0,"(4)")
+	add_primitive("5",0,"(5)")
+	add_primitive("6",0,"(6)")
+	add_primitive("7",0,"(7)")
+	add_primitive("8",0,"(8)")
+	add_primitive("9",0,"(9)")
+	add_primitive("@"   ,0,    "(@)"    )
+	add_primitive("!"	  ,0,    "(!)"	)
+	add_primitive("drop",0,    "(drop)" )
+	add_primitive("dup" ,0,    "(dup)"  )
+	add_primitive("swap",0,    "(swap)" )
+	add_primitive("lit" ,0,    "(lit)"  )
+	add_primitive("+"	  ,0,    "(+)"	)
+	add_primitive("-"	  ,0,    "(-)"	)
+	add_primitive("*"   ,0,    "(*)"    )
+	add_primitive("/"   ,0,    "(/)"    )
+	add_primitive("mod" ,0,    "(mod)"  )
+	add_primitive("and" ,0,    "(and)"  )
+	add_primitive("or"  ,0,    "(or)"   )
+	add_primitive(">"   ,0,    "(>)"    )
+	add_primitive("<"   ,0,    "(<)"    )
+	add_primitive("="   ,0,    "(=)"    )
+	add_primitive(">r"  ,0,    "(>r)"   )
+	add_primitive("r>"  ,0,    "(r>)"   )
+	add_primitive("key" ,0,    "(key)"  )
+	add_primitive("emit",0,    "(emit)" )
+	add_primitive("SP@" ,0,    "(SP@)"  )
+	add_primitive("SP!" ,0,    "(SP!)"  )
+	add_primitive("RP@" ,0,    "(RP@)"  )
+	add_primitive("RP!" ,0,    "(RP!)"  )
+	add_primitive("over",0,    "(over)" )
+	add_primitive("2dup",0,    "(2dup)" )
+	add_primitive("i"   ,0,    "(i)"    )
+	add_primitive("j"   ,0,    "(j)"    )
+	                                    
+
+	cfa=add_primitive("test",0,"10 0 (do) 65 (i) (+) (emit) (loop) 10 (emit)")
+
+	init_code_compile(sp0_val,rp0_val,cfa+1) # cfa+1 of init word
+	output_to_h(img)
 	
-	init_code_compile(sp0_val,rp0_val,0) # 0 - cfa+1 of init word
-	print pvoc.keys()
 main()
 
 
