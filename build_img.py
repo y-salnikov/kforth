@@ -212,8 +212,8 @@ def add_word(name,flags,string):
 	compile_str(string)
 	img.append('r')
 	pvoc[name]=[str(img[code_adr:code_adr+code_length])]
-	write_cell(dp.ard,len(img))
-	return code_length_adr
+	write_cell(dp.adr,len(img))
+	return code_adr-1
 
 
 def output_to_h(arr):
@@ -296,7 +296,7 @@ def main():
 	add_primitive("j"   ,0,    "(j)"    )
 	                                    
 
-	cfa=add_primitive("test",0,"10 0 (do) 65 (i) (+) (emit) (loop) 10 (emit)")
+	cfa=add_word("test",0,"10 0 (do) 65 (i) (+) (emit) (loop) 10 (emit)")
 
 	init_code_compile(sp0_val,rp0_val,cfa+1) # cfa+1 of init word
 	output_to_h(img)
