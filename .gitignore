@@ -1,4 +1,5 @@
 *.geany
 *.o
 *.ko
+*.pyc
 kforth

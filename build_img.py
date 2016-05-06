@@ -82,7 +82,9 @@ pvoc={	"(0)":		 	['0'],
 		"(loop)":		[lambda: pair(3),				"f1+DfDtsf=stst?",				lambda:add_cell(stack.pop()), "ffdd"],
 		"(i)":			["fDt"],
 		"(j)":			["fffDtstst"],
-		
+		"(<<)":			[chr(5)],
+		"(>>)":			[chr(6)],
+		"(xor)":		['^'],
 		}
 
 
@@ -97,13 +99,15 @@ def compile_word(word):
 				if type(act) is str:
 					for s in act: img.append(s)
 	else:
-		if word.isdigit():
+		if (word.isdigit()) or ((word[0]=='-') and (word[1:].isdigit())):
 			img.append('l')
 			add_cell(int(word))
+		else: print "unrecognized word: %s" %(word)
 	return len(img)-offset
 
 def compile_str(s):
 	length=0;
+	s=s.replace(chr(9),' ')
 	for w in s.split(' '):
 		w=w.strip()
 		if len(w)>0:
@@ -170,7 +174,7 @@ def add_const(name,value,link=None):
 	img.append('r')
 	write_cell(adr,len(img))
 	add_cell(value)
-	pvoc[name]=[img[code_adr:code_adr+code_length]]
+	pvoc[name]=[str(img[code_adr:code_adr+code_length])]
 	write_cell(dp.adr,len(img))
 
 def add_var(name,value,link=None):
@@ -183,7 +187,11 @@ def add_var(name,value,link=None):
 	add_cell(0)
 	img.append('r')
 	write_cell(adr,len(img))
-	add_cell(value)
+	if type(value) is str:
+		img.append(len(value))
+		for i in value: img.append(i)
+		img.append(0)
+	else: add_cell(value)
 	pvoc[name]=[str(img[code_adr:code_adr+code_length])]
 	write_cell(dp.adr,len(img))
 
@@ -255,6 +263,7 @@ def main():
 	add_const("sp0",sp0.adr)
 	add_const("rp0",rp0.adr)
 	add_primitive("here",0,"dp (@)")
+	add_const("cell",cell)
 	add_var("base",10)
 	add_primitive("0",0,"(0)")
 	add_primitive("1",0,"(1)")
@@ -279,6 +288,7 @@ def main():
 	add_primitive("mod" ,0,    "(mod)"  )
 	add_primitive("and" ,0,    "(and)"  )
 	add_primitive("or"  ,0,    "(or)"   )
+	add_primitive("xor"  ,0,    "(xor)"   )
 	add_primitive(">"   ,0,    "(>)"    )
 	add_primitive("<"   ,0,    "(<)"    )
 	add_primitive("="   ,0,    "(=)"    )
@@ -294,9 +304,40 @@ def main():
 	add_primitive("2dup",0,    "(2dup)" )
 	add_primitive("i"   ,0,    "(i)"    )
 	add_primitive("j"   ,0,    "(j)"    )
-	                                    
+	add_primitive("<<",0,		"(<<)")
+	add_primitive(">>",0,		"(>>)")
+	add_primitive("cr",0,		"10 emit")
+	add_primitive("c@",0,		"@ 255 and")
+	
+	add_word("u.",0," 0 swap 								\
+							(begin) 						\
+								dup base @ mod 48 + swap 	\
+								base @ / dup 0 = 			\
+							(until) 						\
+							drop 							\
+							(begin) 						\
+								    emit 					\
+									dup 0 = 				\
+							(until) 						\
+							drop ")
+	
+	add_word(".",0,"	dup 1 cell 8 * 1 - << and (if)		\
+							-1 xor  1 + 45 emit (then)		\
+							u.								")
 
-	cfa=add_word("test",0,"10 0 (do) 65 (i) (+) (emit) (loop) 10 (emit)")
+	add_word("type",0," over + swap (do) 					\
+										i c@ emit			\
+									(loop)	")
+	
+	add_word("count",0," dup 1 + swap c@")
+
+
+	add_var("msg","g-gurdissimo")
+	cfa=add_word("test",0,"10 0 (do)						\
+								i 5 - . cr					\
+						  (loop)							\
+						 1 2 over . . .  cr					\
+						 msg count type cr")
 
 	init_code_compile(sp0_val,rp0_val,cfa+1) # cfa+1 of init word
 	output_to_h(img)

@@ -111,6 +111,12 @@ void or(forth_context_type *fc)
 	fc->SP+=fc->cell;
 }
 
+void xor(forth_context_type *fc)
+{
+	
+	*(size_t *)(fc->mem+(fc->SP+fc->cell))^=*(size_t *)(fc->mem+(fc->SP));
+	fc->SP+=fc->cell;
+}
 
 void branch(forth_context_type *fc)
 {
@@ -129,6 +135,7 @@ void cbranch(forth_context_type *fc)
 		adr=next_cell(fc);
 		fc->PC=adr;
 	}
+	else next_cell(fc);
 }
 
 void call(forth_context_type *fc)
@@ -216,6 +223,19 @@ void out(forth_context_type *fc)
 	putchar(pop(fc));
 }
 
+void shl(forth_context_type *fc)
+{
+	
+	*(size_t *)(fc->mem+(fc->SP+fc->cell))<<=*(size_t *)(fc->mem+(fc->SP));
+	fc->SP+=fc->cell;
+}
+
+void shr(forth_context_type *fc)
+{
+	
+	*(size_t *)(fc->mem+(fc->SP+fc->cell))<<=*(size_t *)(fc->mem+(fc->SP));
+	fc->SP+=fc->cell;
+}
 
 void forth_vm_execute_instruction(forth_context_type *fc, char cmd)
 {
@@ -246,6 +266,7 @@ void forth_vm_execute_instruction(forth_context_type *fc, char cmd)
 		case '%': mod(fc);					break; //mod
 		case '&': and(fc);  				break; // and
 		case '|': or(fc);   				break; // or
+		case '^': xor(fc);   				break; // xor
 		case '>': more(fc);					break; // >
 		case '<': less(fc);					break;  // <
 		case '=': eq(fc);					break; // =
@@ -262,6 +283,8 @@ void forth_vm_execute_instruction(forth_context_type *fc, char cmd)
 		case 2:	  fc->SP=pop(fc);			break; // SP!
 		case 3:	  push(fc,fc->RP);			break; // RP@
 		case 4:	  fc->RP=pop(fc);			break; // RP!
+		case 5:	 shl(fc);					break; // <<
+		case 6:	 shr(fc);					break; // >>
 	}
 }
 
