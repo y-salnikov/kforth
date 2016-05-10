@@ -189,6 +189,15 @@ void at(forth_context_type *fc)
 	*(size_t *)(fc->mem+(fc->SP))=*(size_t *)(fc->mem+val);
 }
 
+void cat(forth_context_type *fc)
+{
+	size_t val;
+	val=*(size_t *)(fc->mem+(fc->SP));
+	*(size_t *)(fc->mem+(fc->SP))=(*(size_t *)(fc->mem+val)) & 0xff;
+}
+
+
+
 void to(forth_context_type *fc)
 {
 	size_t adr,val;
@@ -198,6 +207,14 @@ void to(forth_context_type *fc)
 	*(size_t *)(fc->mem+adr)=val;
 }
 
+void cto(forth_context_type *fc)
+{
+	size_t adr,val;
+	adr=*(size_t *)(fc->mem+(fc->SP)); 			fc->SP+=fc->cell;
+	val=(*(size_t *)(fc->mem+(fc->SP))) & 0xff; fc->SP+=fc->cell;
+	
+	*(fc->mem+adr)=val;
+}
 
 void to_r(forth_context_type *fc)
 {
@@ -285,6 +302,9 @@ void forth_vm_execute_instruction(forth_context_type *fc, char cmd)
 		case 4:	  fc->RP=pop(fc);			break; // RP!
 		case 5:	 shl(fc);					break; // <<
 		case 6:	 shr(fc);					break; // >>
+		case 7:  push(fc,*(size_t *)(fc->mem+fc->RP)); break; // i
+		case 8:  cat(fc);					break; // c@
+		case 9:  cto(fc);					break; // c!
 	}
 }
 

@@ -1,9 +1,11 @@
 #!/usr/bin/python2
 # -*- coding: utf-8 -*-
 
-cell=8 # for 64bit
-stack_depth=256 #cells
+cell=8 			# for 64bit - 8 or 4 for 32bit
+stack_depth=256 # cells
+tib_size=1024   # text buffer for 1 input line
 
+IMMEDIATE=1
 
 img=bytearray()
 stack=[]
@@ -80,11 +82,14 @@ pvoc={	"(0)":		 	['0'],
 		"(until)":		[lambda: pair(1),				"?",							lambda:add_cell(stack.pop())],
 		"(do)":			["stt",							lambda:stack.append(len(img)), 	lambda:stack.append(3)],
 		"(loop)":		[lambda: pair(3),				"f1+DfDtsf=stst?",				lambda:add_cell(stack.pop()), "ffdd"],
-		"(i)":			["fDt"],
+		"(leave)":		["fdfDt1-t"],
+		"(i)":			[chr(7)],
 		"(j)":			["fffDtstst"],
 		"(<<)":			[chr(5)],
 		"(>>)":			[chr(6)],
 		"(xor)":		['^'],
+		"(c@)":			[chr(8)],
+		"(c!)":			[chr(9)],
 		}
 
 
@@ -194,6 +199,21 @@ def add_var(name,value,link=None):
 	else: add_cell(value)
 	pvoc[name]=[str(img[code_adr:code_adr+code_length])]
 	write_cell(dp.adr,len(img))
+
+def add_array(name,length,link=None):
+	add_header(name,0,link)
+	code_length=cell+1
+	img.append(code_length)
+	code_adr=len(img)
+	img.append('l')
+	adr=len(img)
+	add_cell(0)
+	img.append('r')
+	write_cell(adr,len(img))
+	for i in xrange(length): img.append(0)
+	pvoc[name]=[str(img[code_adr:code_adr+code_length])]
+	write_cell(dp.adr,len(img))
+
 
 def add_primitive(name,flags,string):
 	add_header(name,flags)
@@ -307,37 +327,59 @@ def main():
 	add_primitive("<<",0,		"(<<)")
 	add_primitive(">>",0,		"(>>)")
 	add_primitive("cr",0,		"10 emit")
-	add_primitive("c@",0,		"@ 255 and")
+	add_primitive("c@",0,		"(c@)")
+	add_primitive("c!",0,		"(c!)")
 	
-	add_word("u.",0," 0 swap 								\
-							(begin) 						\
-								dup base @ mod 48 + swap 	\
-								base @ / dup 0 = 			\
-							(until) 						\
-							drop 							\
-							(begin) 						\
-								    emit 					\
-									dup 0 = 				\
-							(until) 						\
-							drop ")
+	add_array("tib",tib_size)
+	img.append(0)
+	img.append(" ")
+	img.append(0)
+	add_const("tib_size",tib_size)
+	add_var(">in",0)
+	add_var("span",0)
+
+	add_word("c,",0," here c! here 1 + dp !")
+	add_word(",",0,"  here ! here cell + dp !")
+	add_word("depth", 0, "sp0 @ SP@ - cell /" )
+	add_word("u.",0,	" 0 swap (begin) dup base @ mod dup 9 > (if) 7 + (then) 48 + swap base @ / dup 0 = 	(until)	drop (begin) emit dup 0 = (until) drop ")
+	add_word("x.",0,	" 48 emit 120 emit 16 base ! u. 10 base ! ")
+	add_word(".",0,		"	dup 1 cell 8 * 1 - << and (if) -1 xor  1 + 45 emit (then) u. ")
+	add_word("type",0,	" dup 0 > (if) over + swap (do) i c@ emit (loop) (then)")
+	add_word("count",0,	" dup 1 + swap c@")
+	add_word("expect",0," 0 span ! >r dup r> over + swap (do)								\
+													key dup 10 = >r 						\
+														dup 13 = >r 						\
+														dup 0  = r> r> or or 				\
+														(if)  								\
+															 drop (leave)					\
+														(else) 								\
+															i c! span @ 1 + span !			\
+														(then) 								\
+												(loop) 										\
+												span @ + >r 32 i c! 0 i 1 + c! 32 r> 2 + c! ")
+
+	add_word("trailing",0," (begin) dup tib >in @ + c@ = (if) >in @ 1 + >in ! 0 (else) 1 (then) (until) drop")
 	
-	add_word(".",0,"	dup 1 cell 8 * 1 - << and (if)		\
-							-1 xor  1 + 45 emit (then)		\
-							u.								")
-
-	add_word("type",0," over + swap (do) 					\
-										i c@ emit			\
-									(loop)	")
+	add_word("word",0,	" dup trailing 																				\
+						   here 0 c, swap																			\
+						  (begin) dup tib >in @ + c@  = 		(if) 												\
+																		drop dup dup 1 + here swap - swap c! dp ! 1 \
+																(else)  											\
+																		tib >in @ dup 1 + >in !  + c@ c, 0 			\
+																													\
+																(then)   (until) ")
+	add_word("query",0, "tib tib_size expect 0 >in !")
 	
-	add_word("count",0," dup 1 + swap c@")
-
-
 	add_var("msg","g-gurdissimo")
-	cfa=add_word("test",0,"10 0 (do)						\
+	cfa=add_word("test",0,"									\
+							10 0 (do)						\
 								i 5 - . cr					\
+								i 8 = (if) (leave)  (then) 	\
 						  (loop)							\
-						 1 2 over . . .  cr					\
-						 msg count type cr")
+						 depth . cr							\
+						 query bl word here count type cr \
+						 depth . cr							\
+						  ")
 
 	init_code_compile(sp0_val,rp0_val,cfa+1) # cfa+1 of init word
 	output_to_h(img)
