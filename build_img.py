@@ -337,7 +337,8 @@ def main():
 	add_const("tib_size",tib_size)
 	add_var(">in",0)
 	add_var("span",0)
-
+	add_var("case_sensitive",0)
+	
 	add_word("c,",0," here c! here 1 + dp !")
 	add_word(",",0,"  here ! here cell + dp !")
 	add_word("depth", 0, "sp0 @ SP@ - cell /" )
@@ -369,16 +370,63 @@ def main():
 																													\
 																(then)   (until) ")
 	add_word("query",0, "tib tib_size expect 0 >in !")
-	
+	add_word("n>link",0," 1 + dup c@ + 2 + ")
+	add_word("c_lower",0, " dup 64 > >r dup 91 < r> and (if) 32 + (then) ")
+	add_word("c=",0,"case_sensitive @ 	0 = (if)  												\
+											c_lower swap c_lower 								\
+										(then) =")
+#	(word_adr NFA -- 0 | 1 | 2)
+	add_word("(compare)",0," dup c@ >r over c@ over 1 + c@ = 									\
+						  (if) 																\
+								dup 1 + c@ 0 (do)	2dup 2 + i + c@ swap 1 + i + c@ c= 0 = 	\
+								(if)														\
+									drop -1 (leave)											\
+								(then)		(loop)											\
+								-1 = (if) r> drop drop 0 (else) drop 1 r> + (then)			\
+						  (else)															\
+								r> drop	 drop drop 0 										\
+						  (then)															\
+							")
+#	( adr latest -- adr nfa flags+1 | 0)
+	add_word("(find)",0,"	(begin)							\
+								2dup (compare) dup 0 =			\
+									(if)					\
+										drop n>link @		\
+										dup 0 = (if)		\
+													0 1		\
+												(else) 0	\
+												(then)		\
+									(else)					\
+										1					\
+									(then)					\
+							(until)							\
+							")
+#	( -- (CFA 1+flags) | (0))
+	add_word("-find",0,"  bl word here context @ @ 							\
+							(find)											\
+							dup 0 = (if)									\
+										drop drop current @ @				\
+										(find)								\
+										dup 0 = (if)						\
+													drop drop drop 0		\
+												(else)						\
+													>r >r drop r> 			\
+													n>link cell + r>		\
+												(then)					 	\
+									(else)									\
+										>r >r drop r> n>link cell + r>		\
+									(then)\
+							")
 	add_var("msg","g-gurdissimo")
-	cfa=add_word("test",0,"									\
+	cfa=add_word("test",0,"	current @ context !				\
 							10 0 (do)						\
 								i 5 - . cr					\
 								i 8 = (if) (leave)  (then) 	\
 						  (loop)							\
 						 depth . cr							\
-						 query bl word here count type cr \
+						 query -find (if) c@ . cr (then)	\
 						 depth . cr							\
+						 65 c_lower emit 97 emit cr			\
 						  ")
 
 	init_code_compile(sp0_val,rp0_val,cfa+1) # cfa+1 of init word
