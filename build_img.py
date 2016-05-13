@@ -90,6 +90,7 @@ pvoc={	"(0)":		 	['0'],
 		"(xor)":		['^'],
 		"(c@)":			[chr(8)],
 		"(c!)":			[chr(9)],
+		"(dummy)":		["b", lambda: add_cell(0)],
 		}
 
 
@@ -193,7 +194,7 @@ def add_var(name,value,link=None):
 	img.append('r')
 	write_cell(adr,len(img))
 	if type(value) is str:
-		img.append(len(value))
+		img.append(len(value) & 0xff)
 		for i in value: img.append(i)
 		img.append(0)
 	else: add_cell(value)
@@ -279,6 +280,8 @@ def main():
 	add_const("bl",32,0)
 	add_const("current",current.adr)
 	add_const("context",context.adr)
+	add_const("current0",current0.adr)
+	add_const("context0",context0.adr)
 	add_const("dp",dp.adr)
 	add_const("sp0",sp0.adr)
 	add_const("rp0",rp0.adr)
@@ -338,10 +341,11 @@ def main():
 	add_var(">in",0)
 	add_var("span",0)
 	add_var("case_sensitive",0)
+	add_var("state",0)
 	
 	add_word("c,",0," here c! here 1 + dp !")
 	add_word(",",0,"  here ! here cell + dp !")
-	add_word("depth", 0, "sp0 @ SP@ - cell /" )
+	add_word("depth", 0, "SP@ sp0 @ swap - cell /" )
 	add_word("u.",0,	" 0 swap (begin) dup base @ mod dup 9 > (if) 7 + (then) 48 + swap base @ / dup 0 = 	(until)	drop (begin) emit dup 0 = (until) drop ")
 	add_word("x.",0,	" 48 emit 120 emit 16 base ! u. 10 base ! ")
 	add_word(".",0,		"	dup 1 cell 8 * 1 - << and (if) -1 xor  1 + 45 emit (then) u. ")
@@ -417,6 +421,40 @@ def main():
 										>r >r drop r> n>link cell + r>		\
 									(then)\
 							")
+	interpret_cfa=add_word("_interpret_",0,"(dummy)")
+	add_var("msgs","MSG#  0: Unrecognized word.     MSG#  1: Empty Stack.           MSG#  2: Stack overflow.        MSG#  3:                        MSG#  4: Word redefined.        MSG#  5:                        MSG#  6:                        MSG#  7:                        MSG#  8:                        MSG#  9:                        MSG# 10:                        MSG# 11:                        MSG# 12:                        MSG# 13:                        MSG# 14:                        MSG# 15:                        MSG# 16:                        MSG# 17: Compilation only.      MSG# 18: Execution only.        MSG# 19: Unpaired operators.    MSG# 20: Unfinished definition. MSG# 21:                        MSG# 22:                        MSG# 23:                        MSG# 24:                        MSG# 25:                        MSG# 26: Divided by zero.       ")
+	add_var("warning",1)
+	add_var("erb",0)
+	
+	add_word("message",0," 32 * msgs 1 + + warning @ (if) 32 (else) 7 (then) type cr")
+	
+	add_var("ok_msg","OK")
+	add_word("quit",0," 0 state ! \
+							(begin) \
+								rp0 @ RP! query _interpret_ \
+								state @ 0 = (if) ok_msg count type cr (then) \
+								0 (until)")
+	add_word("abort",0," sp0 @ SP! 10 base ! context0 context ! current0 current ! quit ")
+	
+	add_word("error",0," here count type bl emit 63 emit bl emit 	\
+						 erb @ (if) 0 erb ! drop 					\
+						 (else) message sp0 @ SP! quit (then)			")
+	add_var("csp",0)
+	add_word("!csp",0,"SP@ csp !")
+	add_word("?csp",0,"SP@ csp @ - (if) 20 error (then)")
+	add_word("?pair",0," - (if) 19 error (then)")
+	add_word("?comp",0," state @ 0 = (if) 17 error (then)")
+	add_word("?exec",0," state @  (if) 18 error (then)")
+	
+	add_word("number",0,"count >r dup c@ 45 = (if) 1 + 1 r> 1 - >r  (else) 0 (then) swap 	\
+	                     dup c@ 48 = (if) 													\
+							i 1 = (if) r> drop drop drop 0 									\
+							(else)	\
+								\
+							(then)	\
+	                     (then)																\
+	                     ")
+	
 	add_var("msg","g-gurdissimo")
 	cfa=add_word("test",0,"	current @ context !				\
 							10 0 (do)						\
@@ -424,7 +462,7 @@ def main():
 								i 8 = (if) (leave)  (then) 	\
 						  (loop)							\
 						 depth . cr							\
-						 query -find (if) c@ . cr (then)	\
+						 SP@ . cr sp0  @ . cr					\
 						 depth . cr							\
 						 65 c_lower emit 97 emit cr			\
 						  ")
