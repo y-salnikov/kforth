@@ -84,6 +84,7 @@ pvoc={	"(0)":		 	['0'],
 		"(loop)":		[lambda: pair(3),				"f1+DfDtsf=stst?",				lambda:add_cell(stack.pop()), "ffdd"],
 		"(leave)":		["fdfDt1-t"],
 		"(i)":			[chr(7)],
+		"(i+)":			["ffDtst"],
 		"(j)":			["fffDtstst"],
 		"(<<)":			[chr(5)],
 		"(>>)":			[chr(6)],
@@ -272,6 +273,7 @@ def main():
 	rp0_val=len(img)
 	sp0=headless_var("sp0",sp0_val)
 	rp0=headless_var("rp0",rp0_val)
+	for i in xrange(10): add_cell(-1)
 	current0=headless_var("current0")
 	context0=headless_var("context0")
 	current=headless_var("current",current0.adr)
@@ -327,6 +329,7 @@ def main():
 	add_primitive("2dup",0,    "(2dup)" )
 	add_primitive("i"   ,0,    "(i)"    )
 	add_primitive("j"   ,0,    "(j)"    )
+	add_primitive("i+"   ,0,    "(i+)"    )
 	add_primitive("<<",0,		"(<<)")
 	add_primitive(">>",0,		"(>>)")
 	add_primitive("cr",0,		"10 emit")
@@ -421,14 +424,14 @@ def main():
 										>r >r drop r> n>link cell + r>		\
 									(then)\
 							")
-	interpret_cfa=add_word("_interpret_",0,"(dummy)")
+	interpret_stub_cfa=add_word("_interpret_",0,"(dummy)")
 	add_var("msgs","MSG#  0: Unrecognized word.     MSG#  1: Empty Stack.           MSG#  2: Stack overflow.        MSG#  3:                        MSG#  4: Word redefined.        MSG#  5:                        MSG#  6:                        MSG#  7:                        MSG#  8:                        MSG#  9:                        MSG# 10:                        MSG# 11:                        MSG# 12:                        MSG# 13:                        MSG# 14:                        MSG# 15:                        MSG# 16:                        MSG# 17: Compilation only.      MSG# 18: Execution only.        MSG# 19: Unpaired operators.    MSG# 20: Unfinished definition. MSG# 21:                        MSG# 22:                        MSG# 23:                        MSG# 24:                        MSG# 25:                        MSG# 26: Divided by zero.       ")
 	add_var("warning",1)
 	add_var("erb",0)
 	
 	add_word("message",0," 32 * msgs 1 + + warning @ (if) 32 (else) 7 (then) type cr")
 	
-	add_var("ok_msg","OK")
+	add_var("ok_msg"," OK")
 	add_word("quit",0," 0 state ! \
 							(begin) \
 								rp0 @ RP! query _interpret_ \
@@ -445,28 +448,67 @@ def main():
 	add_word("?pair",0," - (if) 19 error (then)")
 	add_word("?comp",0," state @ 0 = (if) 17 error (then)")
 	add_word("?exec",0," state @  (if) 18 error (then)")
-	
-	add_word("number",0,"count >r dup c@ 45 = (if) 1 + 1 r> 1 - >r  (else) 0 (then) swap 	\
-	                     dup c@ 48 = (if) 													\
-							i 1 = (if) r> drop drop drop 0 									\
+	add_word("?stack",0," SP@ sp0 @ > (if) 1 error (else) SP@ cell < (if) 2 error (then) (then) ")
+	add_word("pow",0," 	dup 0 = (if) drop drop 1 (ret) (then)\
+						dup 1 = (if) drop (ret) (then)\
+						swap >r 1 swap 0 (do) j * (loop) r> drop")
+	add_var("number_res",0)
+	add_word("number",0,"0 number_res ! 													\
+						 count >r dup c@ 45 = (if) 1 + 1 r> 1 - >r  (else) 0 (then) swap 	\
+	                     dup c@ 48 = 								\
+	                     (if) 													\
+							i 1 = (if) r> drop drop drop 0 (ret)								\
 							(else)	\
-								\
-							(then)	\
-	                     (then)																\
+								dup 1 + c@ 88 = >r dup 1 + c@ 120 = r> or 					\
+								(if)	\
+									2 + r> 2 - >r 16	\
+								(else)	\
+									1 + r> 1 - >r 8	\
+								(then)	\
+							(then)		\
+						 (else)		\
+							base @	\
+	                     (then) \
+	                     r> swap >r \
+	                     0  \
+	                     (do)			\
+							dup i+ + i - 1 - c@	\
+							48 - dup 9 > (if) 7 - (then)	\
+							dup 32 > (if) 32 - (then)		\
+							dup j 1 - > (if) 0 error (then)	\
+							j i pow *  \
+							number_res @ \
+								+\
+							number_res ! \
+	                     (loop)	drop		\
+	                     r> drop number_res @ swap (if) -1 xor 1 + (then)\
 	                     ")
+	add_word("execute",0," 1 + >r")
+	add_word("cfa,",0," count over + swap (do) i c@ c, (loop)")
+	add_word("'",0," -find (if) (ret) (then) 0 error")
+	add_word("[']",1," ' 108 c, ,")  # 108 = 'l' = lit
+	add_word("[compile]",1," ' cfa, ")
+	add_word("literal",0," state @ (if) 108 c, , (then)")
+	interpret_cfa=add_word("interpret",0,"	(begin)\
+									-find dup (if) \
+										1 - 0 > state @ 0 = or \
+										(if)\
+											execute	\
+										(else)\
+											cfa, \
+										(then)\
+									(else)\
+										drop here number \
+										literal \
+									(then)\
+									?stack \
+								0 (until)")
+	add_word(chr(0),1,"r> drop r> drop" )
+	write_cell(interpret_stub_cfa+3+cell+1,interpret_cfa+3+cell)
 	
-	add_var("msg","g-gurdissimo")
-	cfa=add_word("test",0,"	current @ context !				\
-							10 0 (do)						\
-								i 5 - . cr					\
-								i 8 = (if) (leave)  (then) 	\
-						  (loop)							\
-						 depth . cr							\
-						 SP@ . cr sp0  @ . cr					\
-						 depth . cr							\
-						 65 c_lower emit 97 emit cr			\
-						  ")
 
+
+	cfa=add_word("init",0,"current @ context !  quit" )
 	init_code_compile(sp0_val,rp0_val,cfa+1) # cfa+1 of init word
 	output_to_h(img)
 	

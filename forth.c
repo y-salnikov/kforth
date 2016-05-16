@@ -6,6 +6,7 @@
 #include <errno.h>
 #include "forth.h"
 #include "forth_img.h"
+#include "stddef.h"
 
 /* +------------------------------------+----------+---------------------------+-----------+
  * |                 NFA                |   LFA    |           CFA             |   PFA     |  
@@ -158,18 +159,18 @@ void ret(forth_context_type *fc)
 void more(forth_context_type *fc)
 {
 	size_t val1,val2;
-	val2=*(size_t *)(fc->mem+(fc->SP));
+	val2=*(ptrdiff_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
-	val1=*(size_t *)(fc->mem+(fc->SP));
+	val1=*(ptrdiff_t *)(fc->mem+(fc->SP));
 	*(size_t *)(fc->mem+(fc->SP))= (val1 > val2) ? -1 : 0;
 }
 
 void less(forth_context_type *fc)
 {
 	size_t val1,val2;
-	val2=*(size_t *)(fc->mem+(fc->SP));
+	val2=*(ptrdiff_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
-	val1=*(size_t *)(fc->mem+(fc->SP));
+	val1=*(ptrdiff_t *)(fc->mem+(fc->SP));
 	*(size_t *)(fc->mem+(fc->SP))= (val1 < val2) ? -1 : 0;
 }
 
