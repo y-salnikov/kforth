@@ -309,7 +309,6 @@ def main():
 	add_primitive("+"	  ,0,    "(+)"	)
 	add_primitive("-"	  ,0,    "(-)"	)
 	add_primitive("*"   ,0,    "(*)"    )
-	add_primitive("/"   ,0,    "(/)"    )
 	add_primitive("mod" ,0,    "(mod)"  )
 	add_primitive("and" ,0,    "(and)"  )
 	add_primitive("or"  ,0,    "(or)"   )
@@ -348,8 +347,8 @@ def main():
 	
 	add_word("c,",0," here c! here 1 + dp !")
 	add_word(",",0,"  here ! here cell + dp !")
-	add_word("depth", 0, "SP@ sp0 @ swap - cell /" )
-	add_word("u.",0,	" 0 swap (begin) dup base @ mod dup 9 > (if) 7 + (then) 48 + swap base @ / dup 0 = 	(until)	drop (begin) emit dup 0 = (until) drop ")
+	add_word("depth", 0, "SP@ sp0 @ swap - cell (/)" )
+	add_word("u.",0,	" 0 swap (begin) dup base @ mod dup 9 > (if) 7 + (then) 48 + swap base @ (/) dup 0 = 	(until)	drop (begin) emit dup 0 = (until) drop ")
 	add_word("x.",0,	" 48 emit 120 emit 16 base ! u. 10 base ! ")
 	add_word(".",0,		"	dup 1 cell 8 * 1 - << and (if) -1 xor  1 + 45 emit (then) u. ")
 	add_word("type",0,	" dup 0 > (if) over + swap (do) i c@ emit (loop) (then)")
@@ -505,10 +504,34 @@ def main():
 								0 (until)")
 	add_word(chr(0),1,"r> drop r> drop" )
 	write_cell(interpret_stub_cfa+3+cell+1,interpret_cfa+3+cell)
-	
-
-
-	cfa=add_word("init",0,"current @ context !  quit" )
+	add_var("init_msg","KFORTH")
+	cfa=add_word("init",0,"current @ context ! init_msg count type cr quit" )
+	add_word("/",0," dup 0 = (if) 26 error (then) (/)")
+	add_word("[",1,"0 state !")
+	add_word("]",0,"1 state !")
+	add_word("allot",0," here + dp !")
+	add_word("if",1," ?comp 63 c, here 0 , 2")
+	add_word("then",1," ?comp 2 ?pair here swap !")
+	add_word("else",1," ?comp 2 ?pair >r 98 c, here 0 , here r> ! 2")
+	add_word("begin",1," ?comp  here 1")
+	add_word("until",1," ?comp 1 ?pair 63 c, , ")
+	do_cfa=add_primitive("_do_",0," swap >r >r")
+	add_word("do",1," ?comp %d cfa, here 3" %(do_cfa))
+	loop_cfa=add_primitive("_loop_",0,"r> 1 + r> 2dup = swap >r swap >r")
+	endloop_cfa=add_primitive("_end_loop_",0,"r> r> drop drop")
+	lev_cfa=add_primitive("lev",0,"r> drop i 1 - >r")
+	add_word("loop",1," ?comp 3 ?pair %d cfa, 63 c, , %d cfa, " %(loop_cfa, endloop_cfa))
+	add_word("leave",1," ?comp  %d cfa, " %(lev_cfa))
+	add_word("definitions",0,"context @ current !")
+	add_word("latest",0,"current @ @")
+	add_word("create",0," 0 c, -find (if) here count type bl emit 4 message drop (then) \
+								here dup c@ dup 1 + allot c, latest , 1 - current @ ! \
+								cell 1 + c, 108 c, here cell + 1 + , 114 c,")
+	add_word("variable",0," create 0 ,")
+	add_word(":",1," ?exec !csp current @ context ! create 99 here 2 - cell - c! ]")
+	add_word(";",1," ?comp ?csp 114 c, [")
+	add_word("immediate",0,"1 latest c@ or latest c!")
+	add_word("does>",1,"here "
 	init_code_compile(sp0_val,rp0_val,cfa+1) # cfa+1 of init word
 	output_to_h(img)
 	

@@ -79,21 +79,21 @@ void sub(forth_context_type *fc)
 void mul(forth_context_type *fc)
 {
 	
-	*(size_t *)(fc->mem+(fc->SP+fc->cell))*=*(size_t *)(fc->mem+(fc->SP));
+	*(ptrdiff_t *)(fc->mem+(fc->SP+fc->cell))*=*(ptrdiff_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
 }
 
 void div_(forth_context_type *fc)
 {
 	
-	*(size_t *)(fc->mem+(fc->SP+fc->cell))/=*(size_t *)(fc->mem+(fc->SP));
+	*(ptrdiff_t *)(fc->mem+(fc->SP+fc->cell))/=*(ptrdiff_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
 }
 
 void mod(forth_context_type *fc)
 {
 	
-	*(size_t *)(fc->mem+(fc->SP+fc->cell))%=*(size_t *)(fc->mem+(fc->SP));
+	*(ptrdiff_t *)(fc->mem+(fc->SP+fc->cell))%=*(ptrdiff_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
 }
 
@@ -158,7 +158,7 @@ void ret(forth_context_type *fc)
 
 void more(forth_context_type *fc)
 {
-	size_t val1,val2;
+	ptrdiff_t val1,val2;
 	val2=*(ptrdiff_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
 	val1=*(ptrdiff_t *)(fc->mem+(fc->SP));
@@ -167,7 +167,7 @@ void more(forth_context_type *fc)
 
 void less(forth_context_type *fc)
 {
-	size_t val1,val2;
+	ptrdiff_t val1,val2;
 	val2=*(ptrdiff_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
 	val1=*(ptrdiff_t *)(fc->mem+(fc->SP));
@@ -306,6 +306,7 @@ void forth_vm_execute_instruction(forth_context_type *fc, char cmd)
 		case 7:  push(fc,*(size_t *)(fc->mem+fc->RP)); break; // i
 		case 8:  cat(fc);					break; // c@
 		case 9:  cto(fc);					break; // c!
+		case 10: asm("nop");				break; // nop
 	}
 }
 
