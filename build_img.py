@@ -475,6 +475,7 @@ def main():
 							48 - dup 9 > (if) 7 - (then)	\
 							dup 32 > (if) 32 - (then)		\
 							dup j 1 - > (if) 0 error (then)	\
+							dup 0 < (if) 0 error (then)		\
 							j i pow *  \
 							number_res @ \
 								+\
@@ -526,12 +527,16 @@ def main():
 	add_word("latest",0,"current @ @")
 	add_word("create",0," 0 c, -find (if) here count type bl emit 4 message drop (then) \
 								here dup c@ dup 1 + allot c, latest , 1 - current @ ! \
-								cell 1 + c, 108 c, here cell + 1 + , 114 c,")
+								cell 1 + c, 108 c, here cell + 2 + cell + , 114 c, 0 , 0 c, ")
 	add_word("variable",0," create 0 ,")
-	add_word(":",1," ?exec !csp current @ context ! create 99 here 2 - cell - c! ]")
+	add_word(":",1," ?exec !csp current @ context ! create 99 here 3 - cell - cell - c! ]")
 	add_word(";",1," ?comp ?csp 114 c, [")
 	add_word("immediate",0,"1 latest c@ or latest c!")
-	add_word("does>",1,"here "
+	does1_cfa=add_primitive("(does1)",0,"cell 2 * 2 + latest n>link cell +  dup >r c! 99 i 2 + cell + c! (lit)")
+	does2_cfa=add_primitive("(does2)",0,"i 3 + cell +  ! 114  r> 3 + cell 2 *  + c! (ret)")
+	add_word("does>",1," ?comp  %d cfa, here 0 , %d cfa, here swap !" %(does1_cfa,does2_cfa))
+	add_word("constant",0,"create , latest n>link cell + >r cell 2 + i c! 64 i 2 + cell + c! 114 r> 3 + cell + c!")
+	
 	init_code_compile(sp0_val,rp0_val,cfa+1) # cfa+1 of init word
 	output_to_h(img)
 	
