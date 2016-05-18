@@ -290,6 +290,7 @@ def main():
 	add_primitive("here",0,"dp (@)")
 	add_const("cell",cell)
 	add_var("base",10)
+	add_var("local",0)
 	add_primitive("0",0,"(0)")
 	add_primitive("1",0,"(1)")
 	add_primitive("2",0,"(2)")
@@ -408,21 +409,26 @@ def main():
 							(until)							\
 							")
 #	( -- (CFA 1+flags) | (0))
-	add_word("-find",0,"  bl word here context @ @ 							\
-							(find)											\
-							dup 0 = (if)									\
-										drop drop current @ @				\
-										(find)								\
-										dup 0 = (if)						\
-													drop drop drop 0		\
-												(else)						\
-													>r >r drop r> 			\
-													n>link cell + r>		\
-												(then)					 	\
-									(else)									\
-										>r >r drop r> n>link cell + r>		\
-									(then)\
-							")
+#	add_word("-find",0,"  bl word here context @ @ 							\
+#							(find)											\
+#							dup 0 = (if)									\
+#										drop drop current @ @				\
+#										(find)								\
+#										dup 0 = (if)						\
+#													drop drop drop 0		\
+#												(else)						\
+#													>r >r drop r> 			\
+#													n>link cell + r>		\
+#												(then)					 	\
+#									(else)									\
+#										>r >r drop r> n>link cell + r>		\
+#									(then)\
+#							")
+	add_word("-find",0," bl word here context @ @ (find) dup (if) >r >r drop r> n>link cell + r> (ret) (then) drop drop  \
+									  current @ @ (find) dup (if) >r >r drop r> n>link cell + r> (ret) (then) drop drop  \
+									  local @ (if) local @ @ (find) dup (if) >r >r drop r> n>link cell + r> (ret) (then) drop drop (then) drop 0\
+									  ")
+
 	interpret_stub_cfa=add_word("_interpret_",0,"(dummy)")
 	add_var("msgs","MSG#  0: Unrecognized word.     MSG#  1: Empty Stack.           MSG#  2: Stack overflow.        MSG#  3:                        MSG#  4: Word redefined.        MSG#  5:                        MSG#  6:                        MSG#  7:                        MSG#  8:                        MSG#  9:                        MSG# 10:                        MSG# 11:                        MSG# 12:                        MSG# 13:                        MSG# 14:                        MSG# 15:                        MSG# 16:                        MSG# 17: Compilation only.      MSG# 18: Execution only.        MSG# 19: Unpaired operators.    MSG# 20: Unfinished definition. MSG# 21:                        MSG# 22:                        MSG# 23:                        MSG# 24:                        MSG# 25:                        MSG# 26: Divided by zero.       ")
 	add_var("warning",1)
@@ -473,7 +479,7 @@ def main():
 	                     (do)			\
 							dup i+ + i - 1 - c@	\
 							48 - dup 9 > (if) 7 - (then)	\
-							dup 32 > (if) 32 - (then)		\
+							dup 41 > (if) 32 - (then)		\
 							dup j 1 - > (if) 0 error (then)	\
 							dup 0 < (if) 0 error (then)		\
 							j i pow *  \
@@ -488,7 +494,7 @@ def main():
 	add_word("'",0," -find (if) (ret) (then) 0 error")
 	add_word("[']",1," ' 108 c, ,")  # 108 = 'l' = lit
 	add_word("[compile]",1," ' cfa, ")
-	add_word("literal",0," state @ (if) 108 c, , (then)")
+	add_word("literal",1," state @ (if) 108 c, , (then)")
 	interpret_cfa=add_word("interpret",0,"	(begin)\
 									-find dup (if) \
 										1 - 0 > state @ 0 = or \
@@ -526,17 +532,19 @@ def main():
 	add_word("definitions",0,"context @ current !")
 	add_word("latest",0,"current @ @")
 	add_word("create",0," 0 c, -find (if) here count type bl emit 4 message drop (then) \
-								here dup c@ dup 1 + allot c, latest , 1 - current @ ! \
+								here dup c@ dup 1 + allot c, latest , 1 - local @ (if) local @ ! (else) current @ ! (then)\
 								cell 1 + c, 108 c, here cell + 2 + cell + , 114 c, 0 , 0 c, ")
-	add_word("variable",0," create 0 ,")
+	add_word("variable",0," create ,")
 	add_word(":",1," ?exec !csp current @ context ! create 99 here 3 - cell - cell - c! ]")
-	add_word(";",1," ?comp ?csp 114 c, [")
+	add_word(";",1," ?comp ?csp 114 c, [ 0 local !")
+	add_word("l;",1," ?comp ?csp 114 c, ")
 	add_word("immediate",0,"1 latest c@ or latest c!")
 	does1_cfa=add_primitive("(does1)",0,"cell 2 * 2 + latest n>link cell +  dup >r c! 99 i 2 + cell + c! (lit)")
 	does2_cfa=add_primitive("(does2)",0,"i 3 + cell +  ! 114  r> 3 + cell 2 *  + c! (ret)")
 	add_word("does>",1," ?comp  %d cfa, here 0 , %d cfa, here swap !" %(does1_cfa,does2_cfa))
 	add_word("constant",0,"create , latest n>link cell + >r cell 2 + i c! 64 i 2 + cell + c! 114 r> 3 + cell + c!")
-	
+	add_word("{",1," ?comp 98 c, here 0 , here 0 , local ! latest local @ ! 4 0 state !")
+	add_word("}",0," ?exec 4 ?pair here swap ! 1 state !")
 	init_code_compile(sp0_val,rp0_val,cfa+1) # cfa+1 of init word
 	output_to_h(img)
 	
