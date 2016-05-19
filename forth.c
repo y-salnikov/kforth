@@ -1,9 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <errno.h>
 #include "forth.h"
 #include "forth_img.h"
 #include "stddef.h"
@@ -18,13 +12,13 @@
  */
 
 
-void push(forth_context_type *fc, size_t val)
+static inline  void push(forth_context_type *fc, size_t val)
 {
 	fc->SP-=fc->cell;
 	*(size_t *)(fc->mem+(fc->SP))=val;
 }
 
-size_t pop(forth_context_type *fc)
+static inline  size_t pop(forth_context_type *fc)
 {
 	size_t val;
 	val=*(size_t *)(fc->mem+(fc->SP));
@@ -32,13 +26,13 @@ size_t pop(forth_context_type *fc)
 	return val;
 }
 
-void dup(forth_context_type *fc)
+static inline  void dup(forth_context_type *fc)
 {
 	   *(size_t *)(fc->mem+fc->SP-fc->cell)=*(size_t *)(fc->mem+fc->SP);
 	   fc->SP-=fc->cell;
 }
 
-void swap(forth_context_type *fc)
+static inline  void swap(forth_context_type *fc)
 {
 		size_t *c1,*c2,tmp;
 		c1=(size_t *)(fc->mem+fc->SP+fc->cell);
@@ -48,7 +42,7 @@ void swap(forth_context_type *fc)
 		*c2=tmp;
 }
 
-size_t next_cell(forth_context_type *fc)
+static inline  size_t next_cell(forth_context_type *fc)
 {
 	size_t val,val_;
 	char i;
@@ -62,35 +56,35 @@ size_t next_cell(forth_context_type *fc)
 	return val;
 }
 
-void add(forth_context_type *fc)
+static inline  void add(forth_context_type *fc)
 {
 	
 	*(size_t *)(fc->mem+(fc->SP+fc->cell))+=*(size_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
 }
 
-void sub(forth_context_type *fc)
+static inline  void sub(forth_context_type *fc)
 {
 	
 	*(size_t *)(fc->mem+(fc->SP+fc->cell))-=*(size_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
 }
 
-void mul(forth_context_type *fc)
+static inline  void mul(forth_context_type *fc)
 {
 	
 	*(ptrdiff_t *)(fc->mem+(fc->SP+fc->cell))*=*(ptrdiff_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
 }
 
-void div_(forth_context_type *fc)
+static inline  void div_(forth_context_type *fc)
 {
 	
 	*(ptrdiff_t *)(fc->mem+(fc->SP+fc->cell))/=*(ptrdiff_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
 }
 
-void mod(forth_context_type *fc)
+static inline  void mod(forth_context_type *fc)
 {
 	
 	*(ptrdiff_t *)(fc->mem+(fc->SP+fc->cell))%=*(ptrdiff_t *)(fc->mem+(fc->SP));
@@ -98,35 +92,35 @@ void mod(forth_context_type *fc)
 }
 
 
-void and(forth_context_type *fc)
+static inline  void and(forth_context_type *fc)
 {
 	
 	*(size_t *)(fc->mem+(fc->SP+fc->cell))&=*(size_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
 }
 
-void or(forth_context_type *fc)
+static inline  void or(forth_context_type *fc)
 {
 	
 	*(size_t *)(fc->mem+(fc->SP+fc->cell))|=*(size_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
 }
 
-void xor(forth_context_type *fc)
+static inline  void xor(forth_context_type *fc)
 {
 	
 	*(size_t *)(fc->mem+(fc->SP+fc->cell))^=*(size_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
 }
 
-void branch(forth_context_type *fc)
+static inline  void branch(forth_context_type *fc)
 {
 	size_t adr;
 	adr=next_cell(fc);
 	fc->PC=adr;
 }
 
-void cbranch(forth_context_type *fc)
+static inline  void cbranch(forth_context_type *fc)
 {
 	size_t adr,val;
 	val=*(size_t *)(fc->mem+(fc->SP));
@@ -139,7 +133,7 @@ void cbranch(forth_context_type *fc)
 	else next_cell(fc);
 }
 
-void call(forth_context_type *fc)
+static inline  void call(forth_context_type *fc)
 {
 	size_t adr;
 	adr=next_cell(fc);
@@ -148,7 +142,7 @@ void call(forth_context_type *fc)
 	fc->PC=adr;
 }
 
-void ret(forth_context_type *fc)
+static inline  void ret(forth_context_type *fc)
 {
 	size_t adr;
 	adr=*(size_t *)(fc->mem+(fc->RP));
@@ -156,7 +150,7 @@ void ret(forth_context_type *fc)
 	fc->PC=adr;
 }
 
-void more(forth_context_type *fc)
+static inline  void more(forth_context_type *fc)
 {
 	ptrdiff_t val1,val2;
 	val2=*(ptrdiff_t *)(fc->mem+(fc->SP));
@@ -165,7 +159,7 @@ void more(forth_context_type *fc)
 	*(size_t *)(fc->mem+(fc->SP))= (val1 > val2) ? -1 : 0;
 }
 
-void less(forth_context_type *fc)
+static inline  void less(forth_context_type *fc)
 {
 	ptrdiff_t val1,val2;
 	val2=*(ptrdiff_t *)(fc->mem+(fc->SP));
@@ -174,7 +168,7 @@ void less(forth_context_type *fc)
 	*(size_t *)(fc->mem+(fc->SP))= (val1 < val2) ? -1 : 0;
 }
 
-void eq(forth_context_type *fc)
+static inline  void eq(forth_context_type *fc)
 {
 	size_t val1,val2;
 	val2=*(size_t *)(fc->mem+(fc->SP));
@@ -183,14 +177,14 @@ void eq(forth_context_type *fc)
 	*(size_t *)(fc->mem+(fc->SP))= (val1 == val2) ? -1 : 0;
 }
 
-void at(forth_context_type *fc)
+static inline  void at(forth_context_type *fc)
 {
 	size_t val;
 	val=*(size_t *)(fc->mem+(fc->SP));
 	*(size_t *)(fc->mem+(fc->SP))=*(size_t *)(fc->mem+val);
 }
 
-void cat(forth_context_type *fc)
+static inline  void cat(forth_context_type *fc)
 {
 	size_t val;
 	val=*(size_t *)(fc->mem+(fc->SP));
@@ -199,7 +193,7 @@ void cat(forth_context_type *fc)
 
 
 
-void to(forth_context_type *fc)
+static inline  void to(forth_context_type *fc)
 {
 	size_t adr,val;
 	adr=*(size_t *)(fc->mem+(fc->SP)); fc->SP+=fc->cell;
@@ -208,7 +202,7 @@ void to(forth_context_type *fc)
 	*(size_t *)(fc->mem+adr)=val;
 }
 
-void cto(forth_context_type *fc)
+static inline  void cto(forth_context_type *fc)
 {
 	size_t adr,val;
 	adr=*(size_t *)(fc->mem+(fc->SP)); 			fc->SP+=fc->cell;
@@ -217,45 +211,45 @@ void cto(forth_context_type *fc)
 	*(fc->mem+adr)=val;
 }
 
-void to_r(forth_context_type *fc)
+static inline  void to_r(forth_context_type *fc)
 {
 	fc->RP-=fc->cell;
 	*(size_t *)(fc->mem+(fc->RP))=*(size_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
 }
 
-void from_r(forth_context_type *fc)
+static inline  void from_r(forth_context_type *fc)
 {
 	fc->SP-=fc->cell;
 	*(size_t *)(fc->mem+(fc->SP))=*(size_t *)(fc->mem+(fc->RP));
 	fc->RP+=fc->cell;
 }
 
-void in(forth_context_type *fc)
+static inline  void in(forth_context_type *fc)
 {
 	push(fc,getchar());
 }
 
-void out(forth_context_type *fc)
+static inline  void out(forth_context_type *fc)
 {
 	putchar(pop(fc));
 }
 
-void shl(forth_context_type *fc)
+static inline  void shl(forth_context_type *fc)
 {
 	
 	*(size_t *)(fc->mem+(fc->SP+fc->cell))<<=*(size_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
 }
 
-void shr(forth_context_type *fc)
+static inline  void shr(forth_context_type *fc)
 {
 	
 	*(size_t *)(fc->mem+(fc->SP+fc->cell))<<=*(size_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
 }
 
-void forth_vm_execute_instruction(forth_context_type *fc, char cmd)
+static inline  void forth_vm_execute_instruction(forth_context_type *fc, char cmd)
 {
 //	printf("%c\n",cmd);
 //	getchar();
@@ -310,7 +304,7 @@ void forth_vm_execute_instruction(forth_context_type *fc, char cmd)
 	}
 }
 
-void forth_vm_main_loop(forth_context_type *fc)
+static void forth_vm_main_loop(forth_context_type *fc)
 {
 	char cmd;
 	while(fc->stop==0)

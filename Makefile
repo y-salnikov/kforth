@@ -1,23 +1,8 @@
-compiler:= gcc
-cflags:= -O2 -pipe -Wall -g
-includes:= -I ./
-libdir:= -L ./
-link:= -lm 
-target:= kforth
+obj-m += kforth.o
+kforth-objs=kforth.o forth.o
 
-source_files:=$(wildcard *.c)
-object_files:=$(patsubst %.c,%.o,$(source_files))
+all:
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
 
-
-$(target): $(object_files)
-	$(compiler) $(cflags) $^ $(libdir) $(link) -o $@
-
-%.o: %.c
-	$(compiler) $(cflags) $(includes)  -c $<
-	
-clean: 
-	rm -f $(target)
-	rm -f $(object_files)
-
-
-
+clean:
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
