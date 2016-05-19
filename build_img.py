@@ -352,8 +352,8 @@ def main():
 	add_word("u.",0,	" 0 swap (begin) dup base @ mod dup 9 > (if) 7 + (then) 48 + swap base @ (/) dup 0 = 	(until)	drop (begin) emit dup 0 = (until) drop ")
 	add_word("x.",0,	" 48 emit 120 emit 16 base ! u. 10 base ! ")
 	add_word(".",0,		"	dup 1 cell 8 * 1 - << and (if) -1 xor  1 + 45 emit (then) u. ")
-	add_word("type",0,	" dup 0 > (if) over + swap (do) i c@ emit (loop) (then)")
-	add_word("count",0,	" dup 1 + swap c@")
+	type_cfa=add_word("type",0,	" dup 0 > (if) over + swap (do) i c@ emit (loop) (then)")
+	count_cfa=add_word("count",0,	" dup 1 + swap c@")
 	add_word("expect",0," 0 span ! >r dup r> over + swap (do)								\
 													key dup 10 = >r 						\
 														dup 13 = >r 						\
@@ -371,6 +371,7 @@ def main():
 	add_word("word",0,	" dup trailing 																				\
 						   here 0 c, swap																			\
 						  (begin) dup tib >in @ + c@  = 		(if) 												\
+																		>in @ 1 + >in !								\
 																		drop dup dup 1 + here swap - swap c! dp ! 1 \
 																(else)  											\
 																		tib >in @ dup 1 + >in !  + c@ c, 0 			\
@@ -530,7 +531,7 @@ def main():
 	add_word("loop",1," ?comp 3 ?pair %d cfa, 63 c, , %d cfa, " %(loop_cfa, endloop_cfa))
 	add_word("leave",1," ?comp  %d cfa, " %(lev_cfa))
 	add_word("definitions",0,"context @ current !")
-	add_word("latest",0,"current @ @")
+	add_word("latest",0,"local @ (if) local @ @ (else) current @ @ (then)")
 	add_word("create",0," 0 c, -find (if) here count type bl emit 4 message drop (then) \
 								here dup c@ dup 1 + allot c, latest , 1 - local @ (if) local @ ! (else) current @ ! (then)\
 								cell 1 + c, 108 c, here cell + 2 + cell + , 114 c, 0 , 0 c, ")
@@ -543,8 +544,10 @@ def main():
 	does2_cfa=add_primitive("(does2)",0,"i 3 + cell +  ! 114  r> 3 + cell 2 *  + c! (ret)")
 	add_word("does>",1," ?comp  %d cfa, here 0 , %d cfa, here swap !" %(does1_cfa,does2_cfa))
 	add_word("constant",0,"create , latest n>link cell + >r cell 2 + i c! 64 i 2 + cell + c! 114 r> 3 + cell + c!")
-	add_word("{",1," ?comp 98 c, here 0 , here 0 , local ! latest local @ ! 4 0 state !")
+	add_word("{",1," ?comp 98 c, here 0 , latest  here 0 , local ! local @ ! 4 0 state !")
 	add_word("}",0," ?exec 4 ?pair here swap ! 1 state !")
+	add_word("\"",1,"state @ (if) 98 c, here 0 , (then) 34 word here count 2 + allot 1 - 0 c, state @ (if) >r here swap ! r> 108 c, , (then) ")
+	add_word(".\"",1,"state @ (if) \" %d cfa, %d cfa, (else) 34 word here count type (then)" %(count_cfa,type_cfa))
 	init_code_compile(sp0_val,rp0_val,cfa+1) # cfa+1 of init word
 	output_to_h(img)
 	
