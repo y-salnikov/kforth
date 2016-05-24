@@ -1,5 +1,5 @@
 obj-m += kforth.o
-kforth-objs=kforth.o forth.o
+kforth-objs=kforth_init.o forth.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules

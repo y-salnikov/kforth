@@ -1,3 +1,6 @@
+#include <linux/gfp.h>
+#include <linux/slab.h>
+#include "linux/types.h"
 #include "forth.h"
 #include "forth_img.h"
 #include "stddef.h"
@@ -32,7 +35,7 @@ static inline  void dup(forth_context_type *fc)
 	   fc->SP-=fc->cell;
 }
 
-static inline  void swap(forth_context_type *fc)
+static inline  void swap_(forth_context_type *fc)
 {
 		size_t *c1,*c2,tmp;
 		c1=(size_t *)(fc->mem+fc->SP+fc->cell);
@@ -227,12 +230,12 @@ static inline  void from_r(forth_context_type *fc)
 
 static inline  void in(forth_context_type *fc)
 {
-	push(fc,getchar());
+	//push(fc,getchar());
 }
 
 static inline  void out(forth_context_type *fc)
 {
-	putchar(pop(fc));
+	//putchar(pop(fc));
 }
 
 static inline  void shl(forth_context_type *fc)
@@ -269,7 +272,7 @@ static inline  void forth_vm_execute_instruction(forth_context_type *fc, char cm
 		case '!': to(fc);					break; //!
 		case 'd': fc->SP+=fc->cell;			break; //drop
 		case 'D': dup(fc);					break; //dup
-		case 's': swap(fc);					break; //swap
+		case 's': swap_(fc);					break; //swap
 		case 'l': push(fc,next_cell(fc));	break; //lit
 		case '+': add(fc);  				break; //+
 		case '-': sub(fc);  				break; //-
@@ -318,10 +321,10 @@ forth_context_type* forth_init(void)
 {
 	size_t i;
 	forth_context_type* fc;
-	fc=malloc(sizeof(forth_context_type));
+	fc=kmalloc(sizeof(forth_context_type),GFP_KERNEL);
 	if(fc)
 	{
-		fc->mem=malloc(MEM_SIZE);
+		fc->mem=kmalloc(MEM_SIZE,GFP_KERNEL);
 		for(i=0;i<forth_img_length;i++) fc->mem[i]=forth_img[i];
 		fc->cell=sizeof(size_t);
 		fc->PC=0;

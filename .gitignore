@@ -3,3 +3,8 @@
 *.ko
 *.pyc
 kforth
+*.cmd
+*.mod.c
+Module.symvers
+modules.order
+.tmp_versions

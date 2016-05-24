@@ -3,10 +3,21 @@
 #include <linux/init.h>	
 #include <linux/tty_driver.h>
 
+static struct tty_driver *forth_tty_driver;
+
+
 static int __init kforth_init(void)
 {
+
+static struct tty_operations serial_ops= {
+    .open = NULL,
+    .close = NULL,
+    .write = NULL,
+    .write_room = NULL,
+    .set_termios = NULL,
+}; 
 	/* allocate the tty driver */
-	forth_tty_driver = alloc_tty_driver(TINY_TTY_MINORS);
+	forth_tty_driver = tty_alloc_driver(1,TTY_DRIVER_REAL_RAW | TTY_DRIVER_UNNUMBERED_NODE);
 	if (!forth_tty_driver) return -ENOMEM;
 
 	return 0;
