@@ -4,6 +4,10 @@
 #include "forth.h"
 #include "forth_img.h"
 #include "stddef.h"
+#include <linux/circ_buf.h>
+#include <linux/kthread.h>
+#include <linux/sched.h>
+
 
 /* +------------------------------------+----------+---------------------------+-----------+
  * |                 NFA                |   LFA    |           CFA             |   PFA     |  
@@ -13,6 +17,9 @@
  * | 1b    |  1b    | length b |   1b   |  1 cell  |    1b    |c_length b| 1b  |   ?b      |
  * +-------+--------+----------+--------+----------+----------+----------+-----+-----------+
  */
+
+
+static struct task_struct * forthThread = NULL;
 
 
 static inline  void push(forth_context_type *fc, size_t val)
@@ -303,18 +310,23 @@ static inline  void forth_vm_execute_instruction(forth_context_type *fc, char cm
 		case 7:  push(fc,*(size_t *)(fc->mem+fc->RP)); break; // i
 		case 8:  cat(fc);					break; // c@
 		case 9:  cto(fc);					break; // c!
-		case 10: asm("nop");				break; // nop
+		case 10: schedule_timeout(1);				break; // nop
 	}
 }
 
-static void forth_vm_main_loop(forth_context_type *fc)
+static int forth_vm_main_loop(void *data)
 {
+	forth_context_type *fc;
 	char cmd;
+	fc=data;
 	while(fc->stop==0)
 	{
+		if(kthread_should_stop()) break;
 		cmd=*(fc->mem+fc->PC++);
 		forth_vm_execute_instruction(fc,cmd);
 	}
+	//if(fc->stop) do_exit(0);
+	return 0;
 }
 
 forth_context_type* forth_init(void)
@@ -329,7 +341,8 @@ forth_context_type* forth_init(void)
 		fc->cell=sizeof(size_t);
 		fc->PC=0;
 		fc->stop=0;
-		forth_vm_main_loop(fc);
+		forthThread=kthread_run(forth_vm_main_loop,fc,"Kforth");
+//		forth_vm_main_loop(fc);
 	}
 	return fc;
 }

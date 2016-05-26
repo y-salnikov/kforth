@@ -8,7 +8,6 @@
 #define  DEVICE_NAME "kforth"
 #define  CLASS_NAME  "k4th"
 static int    majorNumber;                  
-static int    numberOpens = 0;              
 static struct class*  fClass  = NULL; 
 static struct device* fDevice = NULL; 
 
@@ -19,6 +18,8 @@ static int     dev_open(struct inode *, struct file *);
 static int     dev_release(struct inode *, struct file *);
 static ssize_t dev_read(struct file *, char *, size_t, loff_t *);
 static ssize_t dev_write(struct file *, const char *, size_t, loff_t *);
+
+static DEFINE_MUTEX(kforth_mutex);
 
 static struct file_operations fops =
 {
@@ -53,12 +54,14 @@ static int __init kforth_init(void)
       printk(KERN_ALERT "Failed to create the device\n");
       return PTR_ERR(fDevice);
    }
+   mutex_init(&kforth_mutex);
    
    return 0;
 }
 
 static void __exit kforth_exit(void)
 {
+	mutex_destroy(&kforth_mutex);
 	device_destroy(fClass, MKDEV(majorNumber, 0));     // remove the device
    class_unregister(fClass);                          // unregister the device class
    class_destroy(fClass);                             // remove the device class
@@ -66,7 +69,11 @@ static void __exit kforth_exit(void)
 }
 
 static int dev_open(struct inode *inodep, struct file *filep){
-   numberOpens++;
+   if(!mutex_trylock(&kforth_mutex)){    /// Try to acquire the mutex (i.e., put the lock on/down)
+                                          /// returns 1 if successful and 0 if there is contention
+      printk(KERN_ALERT "Kforth: Device in use by another process");
+      return -EBUSY;
+   }
    return 0;
 }
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset){
@@ -90,7 +97,7 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
 }
 
 static int dev_release(struct inode *inodep, struct file *filep){
-
+	mutex_unlock(&kforth_mutex); 
    return 0;
 }
 

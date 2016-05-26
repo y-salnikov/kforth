@@ -92,6 +92,7 @@ pvoc={	"(0)":		 	['0'],
 		"(c@)":			[chr(8)],
 		"(c!)":			[chr(9)],
 		"(dummy)":		["b", lambda: add_cell(0)],
+		"(nop)":		[chr(10)],
 		}
 
 
@@ -335,6 +336,7 @@ def main():
 	add_primitive("cr",0,		"10 emit")
 	add_primitive("c@",0,		"(c@)")
 	add_primitive("c!",0,		"(c!)")
+	add_primitive("nop",0,		"(nop)")
 	
 	add_array("tib",tib_size)
 	img.append(0)
