@@ -1,54 +1,97 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>	
-#include <linux/tty.h>
-#include <linux/tty_driver.h>
+#include <linux/device.h>
+#include <linux/fs.h>
+#include <asm/uaccess.h> 
 
-static struct tty_driver *forth_tty_driver;
+#define  DEVICE_NAME "kforth"
+#define  CLASS_NAME  "k4th"
+static int    majorNumber;                  
+static int    numberOpens = 0;              
+static struct class*  fClass  = NULL; 
+static struct device* fDevice = NULL; 
+
+static char *forth_output;
+static int size_of_output=0;
+
+static int     dev_open(struct inode *, struct file *);
+static int     dev_release(struct inode *, struct file *);
+static ssize_t dev_read(struct file *, char *, size_t, loff_t *);
+static ssize_t dev_write(struct file *, const char *, size_t, loff_t *);
+
+static struct file_operations fops =
+{
+   .open = dev_open,
+   .read = dev_read,
+   .write = dev_write,
+   .release = dev_release,
+};
 
 
 static int __init kforth_init(void)
 {
-	int retval;
-static struct tty_operations serial_ops= {
-    .open = NULL,
-    .close = NULL,
-    .write = NULL,
-    .write_room = NULL,
-    .set_termios = NULL,
-}; 
-	
-
-	/* allocate the tty driver */
-	forth_tty_driver = tty_alloc_driver(1,TTY_DRIVER_REAL_RAW | TTY_DRIVER_UNNUMBERED_NODE);
-	if (!forth_tty_driver) return -ENOMEM;
-	
-	/* initialize the tty driver */
-	forth_tty_driver->owner = THIS_MODULE;
-	forth_tty_driver->driver_name = "forth_tty";
-	forth_tty_driver->name = "ttyFORTH";
-	forth_tty_driver->name_base= 0;
-	forth_tty_driver->major = 4,
-	forth_tty_driver->type = TTY_DRIVER_TYPE_SERIAL,
-	forth_tty_driver->subtype = SERIAL_TYPE_NORMAL,
-	forth_tty_driver->flags = TTY_DRIVER_REAL_RAW |  TTY_DRIVER_UNNUMBERED_NODE,
-	forth_tty_driver->init_termios = tty_std_termios;
-	forth_tty_driver->init_termios.c_cflag = B9600 | CS8 | CREAD | HUPCL | CLOCAL;
-	tty_set_operations(forth_tty_driver, &serial_ops);
-	/* register the tty driver */
-	retval = tty_register_driver(forth_tty_driver);
-	if (retval) {
-		printk(KERN_ERR "failed to register forth tty driver");
-		put_tty_driver(forth_tty_driver);
-		return retval;
-	}
-
-	return 0;
+   
+   majorNumber = register_chrdev(0, DEVICE_NAME, &fops);
+   if (majorNumber<0){
+      printk(KERN_ALERT "Kforth failed to register a major number\n");
+      return majorNumber;
+   }
+   // Register the device class
+   fClass = class_create(THIS_MODULE, CLASS_NAME);
+   if (IS_ERR(fClass)){                // Check for error and clean up if there is
+      unregister_chrdev(majorNumber, DEVICE_NAME);
+      printk(KERN_ALERT "Failed to register device class\n");
+      return PTR_ERR(fClass);          // Correct way to return an error on a pointer
+   }
+ 
+   // Register the device driver
+   fDevice = device_create(fClass, NULL, MKDEV(majorNumber, 0), NULL, DEVICE_NAME);
+   if (IS_ERR(fDevice)){               // Clean up if there is an error
+      class_destroy(fClass);           // Repeated code but the alternative is goto statements
+      unregister_chrdev(majorNumber, DEVICE_NAME);
+      printk(KERN_ALERT "Failed to create the device\n");
+      return PTR_ERR(fDevice);
+   }
+   
+   return 0;
 }
 
 static void __exit kforth_exit(void)
 {
-	
+	device_destroy(fClass, MKDEV(majorNumber, 0));     // remove the device
+   class_unregister(fClass);                          // unregister the device class
+   class_destroy(fClass);                             // remove the device class
+   unregister_chrdev(majorNumber, DEVICE_NAME);             // unregister the major number
+}
+
+static int dev_open(struct inode *inodep, struct file *filep){
+   numberOpens++;
+   return 0;
+}
+static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset){
+   int error_count = 0;
+   // copy_to_user has the format ( * to, *from, size) and returns 0 on success
+   error_count = copy_to_user(buffer, forth_output, size_of_output);
+ 
+   if (error_count==0){            // if true then have success
+      return (size_of_output=0);  // clear the position to the start and return 0
+   }
+   else {
+      printk(KERN_INFO "Kforth: Failed to send %d characters to the user\n", error_count);
+      return -EFAULT;              // Failed -- return a bad address message (i.e. -14)
+   }
+}
+static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset){
+//   sprintf(message, "%s(%d letters)", buffer, len);   // appending received string with its length
+//   size_of_message = strlen(message);                 // store the length of the stored message
+
+   return len;
+}
+
+static int dev_release(struct inode *inodep, struct file *filep){
+
+   return 0;
 }
 
 module_init(kforth_init);
