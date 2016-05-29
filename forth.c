@@ -1,12 +1,12 @@
 #include <linux/gfp.h>
 #include <linux/slab.h>
 #include "linux/types.h"
-#include "forth.h"
 #include "forth_img.h"
 #include "stddef.h"
 #include <linux/circ_buf.h>
 #include <linux/kthread.h>
 #include <linux/sched.h>
+#include "forth.h"
 
 
 /* +------------------------------------+----------+---------------------------+-----------+
@@ -237,13 +237,65 @@ static inline  void from_r(forth_context_type *fc)
 
 static inline  void in(forth_context_type *fc)
 {
-	//push(fc,getchar());
+	set_current_state(TASK_INTERRUPTIBLE);
+	while (CIRC_CNT(fc->in.head,fc->in.tail,TIB_SIZE)==0)
+	{
+		schedule_timeout(2);
+		set_current_state(TASK_INTERRUPTIBLE);
+		if(fc->stop) return;
+	}
+	fc->SP-=fc->cell;
+	*(size_t *)(fc->mem+(fc->SP))=fc->in.buf[fc->in.tail];
+	fc->in.tail=(fc->in.tail+1) & (TIB_SIZE-1);
+	
 }
 
 static inline  void out(forth_context_type *fc)
 {
-	//putchar(pop(fc));
+	set_current_state(TASK_INTERRUPTIBLE);
+	while (CIRC_SPACE(fc->out.head,fc->out.tail,TIB_SIZE)==0)
+	{
+		schedule_timeout(2);
+		set_current_state(TASK_INTERRUPTIBLE);
+		if(fc->stop) return;
+	}
+	fc->out.buf[fc->out.head]=0xff & (*(size_t *)(fc->mem+(fc->SP)) );
+	fc->SP+=fc->cell;
+	fc->out.head=(fc->out.head+1) & (TIB_SIZE-1);
+	
 }
+
+void put_to_in(forth_context_type *fc, char c)
+{
+	set_current_state(TASK_INTERRUPTIBLE);
+	while (CIRC_SPACE(fc->in.head,fc->in.tail,TIB_SIZE)==0)
+	{
+		schedule_timeout(2);
+		set_current_state(TASK_INTERRUPTIBLE);
+		if(fc->stop) return;
+	}
+	set_current_state(TASK_RUNNING);
+	fc->in.buf[fc->in.head]=c;
+	fc->in.head=(fc->in.head+1) & (TIB_SIZE-1);
+}
+
+char read_from_out(forth_context_type *fc)
+{
+	char c;
+	set_current_state(TASK_INTERRUPTIBLE);
+	while (CIRC_CNT(fc->out.head,fc->out.tail,TIB_SIZE)==0)
+	{
+		schedule_timeout(2);
+		set_current_state(TASK_INTERRUPTIBLE);
+		if(fc->stop) return 0;
+	}
+	set_current_state(TASK_RUNNING);
+	c=fc->out.buf[fc->out.tail];
+	fc->out.tail=(fc->out.tail+1) & (TIB_SIZE-1);
+	return c;
+}
+
+
 
 static inline  void shl(forth_context_type *fc)
 {
@@ -336,6 +388,10 @@ forth_context_type* forth_init(void)
 	fc=kmalloc(sizeof(forth_context_type),GFP_KERNEL);
 	if(fc)
 	{
+		fc->in.buf=kmalloc(TIB_SIZE,GFP_KERNEL);
+		fc->out.buf=kmalloc(TIB_SIZE,GFP_KERNEL);
+		fc->in.tail=0; fc->in.head=0;
+		fc->out.tail=0; fc->out.head=0;
 		fc->mem=kmalloc(MEM_SIZE,GFP_KERNEL);
 		for(i=0;i<forth_img_length;i++) fc->mem[i]=forth_img[i];
 		fc->cell=sizeof(size_t);
@@ -345,4 +401,15 @@ forth_context_type* forth_init(void)
 //		forth_vm_main_loop(fc);
 	}
 	return fc;
+}
+
+void forth_done(forth_context_type *fc)
+{
+	if (fc==NULL) return;
+	fc->stop=1;
+	kthread_stop(forthThread);
+	kfree(fc->mem);
+	kfree(fc->out.buf);
+	kfree(fc->in.buf);
+	kfree(fc);
 }

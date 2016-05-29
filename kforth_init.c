@@ -3,16 +3,22 @@
 #include <linux/init.h>	
 #include <linux/device.h>
 #include <linux/fs.h>
-#include <asm/uaccess.h> 
+#include <linux/gfp.h>
+#include <linux/slab.h>
+#include <asm/uaccess.h>
+#include <linux/circ_buf.h>
+#include "forth.h"
 
 #define  DEVICE_NAME "kforth"
 #define  CLASS_NAME  "k4th"
+#define  CHUNK_SIZE 512
+
 static int    majorNumber;                  
 static struct class*  fClass  = NULL; 
 static struct device* fDevice = NULL; 
+static forth_context_type *fc;
+static char *in_buf, *out_buf;
 
-static char *forth_output;
-static int size_of_output=0;
 
 static int     dev_open(struct inode *, struct file *);
 static int     dev_release(struct inode *, struct file *);
@@ -55,44 +61,78 @@ static int __init kforth_init(void)
       return PTR_ERR(fDevice);
    }
    mutex_init(&kforth_mutex);
-   
+   in_buf=kmalloc(CHUNK_SIZE,GFP_KERNEL);
+   out_buf=kmalloc(CHUNK_SIZE,GFP_KERNEL);
+   if(in_buf==NULL) return -ENOMEM;
+   if(out_buf==NULL) return -ENOMEM;
+   fc=forth_init();
    return 0;
 }
 
 static void __exit kforth_exit(void)
 {
+	forth_done(fc);
 	mutex_destroy(&kforth_mutex);
 	device_destroy(fClass, MKDEV(majorNumber, 0));     // remove the device
-   class_unregister(fClass);                          // unregister the device class
-   class_destroy(fClass);                             // remove the device class
-   unregister_chrdev(majorNumber, DEVICE_NAME);             // unregister the major number
+	class_unregister(fClass);                          // unregister the device class
+	class_destroy(fClass);                             // remove the device class
+	unregister_chrdev(majorNumber, DEVICE_NAME);             // unregister the major number
+
+   kfree(in_buf);
+   kfree(out_buf);
 }
 
 static int dev_open(struct inode *inodep, struct file *filep){
-   if(!mutex_trylock(&kforth_mutex)){    /// Try to acquire the mutex (i.e., put the lock on/down)
-                                          /// returns 1 if successful and 0 if there is contention
+   if(!mutex_trylock(&kforth_mutex)){    
       printk(KERN_ALERT "Kforth: Device in use by another process");
       return -EBUSY;
    }
    return 0;
 }
-static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset){
-   int error_count = 0;
-   // copy_to_user has the format ( * to, *from, size) and returns 0 on success
-   error_count = copy_to_user(buffer, forth_output, size_of_output);
- 
-   if (error_count==0){            // if true then have success
-      return (size_of_output=0);  // clear the position to the start and return 0
-   }
-   else {
-      printk(KERN_INFO "Kforth: Failed to send %d characters to the user\n", error_count);
-      return -EFAULT;              // Failed -- return a bad address message (i.e. -14)
-   }
-}
-static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset){
-//   sprintf(message, "%s(%d letters)", buffer, len);   // appending received string with its length
-//   size_of_message = strlen(message);                 // store the length of the stored message
+static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
+{
 
+	size_t err;
+	size_t i;
+	size_t to_read;
+	size_t lngth;
+
+	lngth=CIRC_CNT(fc->out.head,fc->out.tail,TIB_SIZE);
+	to_read=len;
+	
+	if (len>CHUNK_SIZE) to_read=CHUNK_SIZE;
+	if (to_read>lngth)  to_read=lngth;
+	
+	for(i=0;i<to_read;i++)
+	{
+		out_buf[i]=read_from_out(fc);
+	}
+	if(to_read>0)
+	{
+		err=copy_to_user(buffer,out_buf,to_read);
+		if(err) printk(KERN_ALERT "Kforth: Can't write to userspace\n");
+	}
+	return to_read;
+}
+static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
+{
+	size_t transfered=0;
+	size_t chunk_size;
+	size_t err;
+	size_t i;
+	
+	while(transfered<len)
+	{
+		if((len-transfered)<512) chunk_size=len-transfered;
+		else chunk_size=CHUNK_SIZE;
+		err=copy_from_user(in_buf,buffer+transfered,chunk_size);
+		if(err) printk(KERN_ALERT "Kforth: Can't read from userspace\n");
+		for(i=0;i<chunk_size;i++)
+		{
+			put_to_in(fc,in_buf[i]);
+		}
+		transfered+=chunk_size;
+	}
    return len;
 }
 
