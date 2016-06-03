@@ -237,33 +237,32 @@ static inline  void from_r(forth_context_type *fc)
 
 static inline  void in(forth_context_type *fc)
 {
-	set_current_state(TASK_INTERRUPTIBLE);
-	while (CIRC_CNT(fc->in.head,fc->in.tail,TIB_SIZE)==0)
-	{
-		schedule_timeout(2);
-		set_current_state(TASK_INTERRUPTIBLE);
-		if(fc->stop) return;
-	}
 	fc->SP-=fc->cell;
 	*(size_t *)(fc->mem+(fc->SP))=fc->in.buf[fc->in.tail];
 	fc->in.tail=(fc->in.tail+1) & (TIB_SIZE-1);
-	
 }
+
+static inline void in_ready(forth_context_type *fc)
+{
+	fc->SP-=fc->cell;
+	*(size_t *)(fc->mem+(fc->SP))= (CIRC_CNT(fc->in.head,fc->in.tail,TIB_SIZE));
+}
+
 
 static inline  void out(forth_context_type *fc)
 {
-	set_current_state(TASK_INTERRUPTIBLE);
-	while (CIRC_SPACE(fc->out.head,fc->out.tail,TIB_SIZE)==0)
-	{
-		schedule_timeout(2);
-		set_current_state(TASK_INTERRUPTIBLE);
-		if(fc->stop) return;
-	}
 	fc->out.buf[fc->out.head]=0xff & (*(size_t *)(fc->mem+(fc->SP)) );
 	fc->SP+=fc->cell;
 	fc->out.head=(fc->out.head+1) & (TIB_SIZE-1);
-	
 }
+
+
+static inline void out_ready(forth_context_type *fc)
+{
+	fc->SP-=fc->cell;
+	*(size_t *)(fc->mem+(fc->SP))=CIRC_SPACE(fc->out.head,fc->out.tail,TIB_SIZE);
+}
+
 
 void put_to_in(forth_context_type *fc, char c)
 {
@@ -350,8 +349,8 @@ static inline  void forth_vm_execute_instruction(forth_context_type *fc, char cm
 		case 'r': ret(fc);					break; // ret
 		case 't': to_r(fc);					break; // >R
 		case 'f': from_r(fc);				break; // R>
-		case 'i': in(fc);					break; // key
-		case 'o': out(fc);					break; // emit
+		case 'i': in(fc);					break; // in
+		case 'o': out(fc);					break; // out
 		case '_': fc->stop=1;				break; // stop
 		case 1:	  push(fc,fc->SP);			break; // SP@
 		case 2:	  fc->SP=pop(fc);			break; // SP!
@@ -362,7 +361,9 @@ static inline  void forth_vm_execute_instruction(forth_context_type *fc, char cm
 		case 7:  push(fc,*(size_t *)(fc->mem+fc->RP)); break; // i
 		case 8:  cat(fc);					break; // c@
 		case 9:  cto(fc);					break; // c!
-		case 10: schedule_timeout(1);				break; // nop
+		case 10: set_current_state(TASK_INTERRUPTIBLE); schedule_timeout(1);				break; // nop
+		case 11: in_ready(fc);				break; // ?in
+		case 12: out_ready(fc);				break; // ?out
 	}
 }
 

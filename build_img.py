@@ -66,8 +66,8 @@ pvoc={	"(0)":		 	['0'],
 		"(ret)":		['r'],
 		"(>r)":			['t'],
 		"(r>)":			['f'],
-		"(key)":		['i'],
-		"(emit)":		['o'],
+		"(in)":		['i'],
+		"(out)":		['o'],
 		"(SP@)":		[chr(1)],
 		"(SP!)":		[chr(2)],
 		"(RP@)":		[chr(3)],
@@ -93,6 +93,8 @@ pvoc={	"(0)":		 	['0'],
 		"(c!)":			[chr(9)],
 		"(dummy)":		["b", lambda: add_cell(0)],
 		"(nop)":		[chr(10)],
+		"(?in)":		[chr(11)],
+		"(?out)":		[chr(12)],
 		}
 
 
@@ -320,8 +322,6 @@ def main():
 	add_primitive("="   ,0,    "(=)"    )
 	add_primitive(">r"  ,0,    "(>r)"   )
 	add_primitive("r>"  ,0,    "(r>)"   )
-	add_primitive("key" ,0,    "(key)"  )
-	add_primitive("emit",0,    "(emit)" )
 	add_primitive("SP@" ,0,    "(SP@)"  )
 	add_primitive("SP!" ,0,    "(SP!)"  )
 	add_primitive("RP@" ,0,    "(RP@)"  )
@@ -333,7 +333,6 @@ def main():
 	add_primitive("i+"   ,0,    "(i+)"    )
 	add_primitive("<<",0,		"(<<)")
 	add_primitive(">>",0,		"(>>)")
-	add_primitive("cr",0,		"10 emit")
 	add_primitive("c@",0,		"(c@)")
 	add_primitive("c!",0,		"(c!)")
 	add_primitive("nop",0,		"(nop)")
@@ -351,6 +350,11 @@ def main():
 	add_word("c,",0," here c! here 1 + dp !")
 	add_word(",",0,"  here ! here cell + dp !")
 	add_word("depth", 0, "SP@ sp0 @ swap - cell (/)" )
+	add_primitive("?key",0,"(?in)")
+	add_primitive("?emit",0,"(?out)")
+	add_word("key",0, "?key  0 = (if) (begin) nop ?key  (until) (then) (in)" )
+	add_word("emit",0,"?emit 0 = (if) (begin) nop ?emit (until) (then) (out)")
+	add_primitive("cr",0,		"10 emit")
 	add_word("u.",0,	" 0 swap (begin) dup base @ mod dup 9 > (if) 7 + (then) 48 + swap base @ (/) dup 0 = 	(until)	drop (begin) emit dup 0 = (until) drop ")
 	add_word("x.",0,	" 48 emit 120 emit 16 base ! u. 10 base ! ")
 	add_word(".",0,		"	dup 1 cell 8 * 1 - << and (if) -1 xor  1 + 45 emit (then) u. ")
