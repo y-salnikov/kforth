@@ -558,8 +558,44 @@ def main():
 	add_word("constant",0,"create , latest n>link cell + >r cell 2 + i c! 64 i 2 + cell + c! 114 r> 3 + cell + c!")
 	add_word("{",1," ?comp 98 c, here 0 , latest  here 0 , local ! local @ ! 4 0 state ! 1 local_scope !")
 	add_word("}",0," ?exec 4 ?pair here swap ! 1 state ! 0 local_scope !")
-	add_word("\"",1,"state @ (if) 98 c, here 0 , (then) 34 word here count 1 + allot 1 - 0 c, state @ (if) >r here swap ! r> 108 c, , (then) ")
-	add_word(".\"",1,"state @ (if) \" %d cfa, %d cfa, (else) 34 word here count type (then)" %(count_cfa,type_cfa))
+	add_word("+!",0,"dup @ swap >r + r> !")
+	add_array("str_buf",256)
+	add_var("str_ptr",0)
+	add_word(">str",0,"str_buf str_ptr @ + c! 1 str_ptr +!")
+	add_word("u.str",0,	" 0 swap (begin) dup base @ umod dup 9 > (if) 7 + (then) 48 + swap base @ (u/) dup 0 = 	(until)	drop (begin) >str dup 0 = (until) drop ")
+	add_word("x.str",0,	" 16 base ! u.str 10 base ! ")
+	add_word(".str",0,		"	dup 1 cell 8 * 1 - << and (if) -1 xor  1 + 45 >str (then) u.str ")
+	add_word("parse_string",0," count 0 str_ptr ! 0 (do)                                                     \
+										dup i + c@                                                           \
+										dup 92 = (if)                                                        \
+												r> 1 + >r                                                    \
+												drop dup i + c@                                              \
+												dup 110 = (if) 10 >str (then)                                \
+												dup 114 = (if) 13 >str (then)                                \
+												dup 116 = (if) 9  >str (then)                                \
+												dup 92  = (if) 92 >str (then)                                \
+												drop                                                         \
+										       (else)                                                        \
+										          dup 37 = (if)                                              \
+															  r> 1 + >r                                      \
+															  drop dup i + c@                                \
+															  dup 100 = (if) >r >r  .str r> r>        (then) \
+															  dup 120 = (if) >r >r  x.str r> r>       (then) \
+															  dup 117 = (if) >r >r  u.str r> r>       (then) \
+															  drop                                           \
+														(else)                                               \
+															>str                                             \
+														(then)                                               \
+										       (then)                                                        \
+										(loop)                                                               \
+										dup 1 - str_ptr @ swap c!                                            \
+										str_ptr @ 0 (do)                                                     \
+											dup i + str_buf i + c@ swap c!                                   \
+										(loop)                                                               \
+										0 swap str_ptr @ + c!                                                \
+										")
+	add_word("\"",1,"state @ (if) 98 c, here 0 , (then) 34 word here parse_string here count 1 + allot 1 - 0 c, state @ (if) >r here swap ! r> 108 c, , (then) ")
+	add_word(".\"",1,"state @ (if) \" %d cfa, %d cfa, (else) 34 word here parse_string here count type (then)" %(count_cfa,type_cfa))
 	add_primitive("@0",0,"(@0)")
 	add_word("kallsyms_lookup_name",0,"count drop @0 + (kallsyms_lookup_name)")
 	add_primitive("kcall",0,"(kcall)")
