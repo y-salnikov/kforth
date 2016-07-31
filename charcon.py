@@ -24,7 +24,7 @@ def main():
 			if dev in r:	   outbuf.put_nowait(os.read(dev,1))
 			if ((sys.stdout in w) and ( not outbuf.empty() )): sys.stdout.write(outbuf.get_nowait())
 			if (( dev in w )      and ( not inbuf.empty() ) ): os.write(dev,inbuf.get_nowait())
-			time.sleep(0.01)
+			time.sleep(0.0001)
 	finally:
 		termios.tcsetattr(fd, termios.TCSADRAIN, old)
 		

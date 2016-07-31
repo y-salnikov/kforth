@@ -595,7 +595,8 @@ def main():
 										0 swap str_ptr @ + c!                                                \
 										")
 	add_word("\"",1,"state @ (if) 98 c, here 0 , (then) 34 word here parse_string here count 1 + allot 1 - 0 c, state @ (if) >r here swap ! r> 108 c, , (then) ")
-	add_word(".\"",1,"state @ (if) \" %d cfa, %d cfa, (else) 34 word here parse_string here count type (then)" %(count_cfa,type_cfa))
+	add_word("r\"",1,"state @ (if) 98 c, here 0 , (then) 34 word here count 1 + allot 1 - 0 c, state @ (if) >r here swap ! r> 108 c, , (then) ")
+	add_word(".\"",1,"state @ (if) r\" %d cfa, %d cfa, (else) 34 word here count type (then)" %(count_cfa,type_cfa))
 	add_primitive("@0",0,"(@0)")
 	add_word("kallsyms_lookup_name",0,"count drop @0 + (kallsyms_lookup_name)")
 	add_primitive("kcall",0,"(kcall)")
