@@ -95,6 +95,10 @@ pvoc={	"(0)":		 	['0'],
 		"(nop)":		[chr(10)],
 		"(?in)":		[chr(11)],
 		"(?out)":		[chr(12)],
+		"(@0)":			["A"],
+		"(kallsyms_lookup_name)":["K"],
+		"(umod)":		[chr(16)],
+		"(udiv)":		[chr(17)],
 		}
 
 
@@ -294,6 +298,7 @@ def main():
 	add_const("cell",cell)
 	add_var("base",10)
 	add_var("local",0)
+	add_var("local_scope",0)
 	add_primitive("0",0,"(0)")
 	add_primitive("1",0,"(1)")
 	add_primitive("2",0,"(2)")
@@ -336,7 +341,8 @@ def main():
 	add_primitive("c@",0,		"(c@)")
 	add_primitive("c!",0,		"(c!)")
 	add_primitive("nop",0,		"(nop)")
-	
+	add_primitive("umod",0,		"(umod)")
+	add_primitive("(u/)",0,		"(udiv)")
 	add_array("tib",tib_size)
 	img.append(0)
 	img.append(" ")
@@ -355,7 +361,7 @@ def main():
 	add_word("key",0, "?key  0 = (if) (begin) nop ?key  (until) (then) (in)" )
 	add_word("emit",0,"?emit 0 = (if) (begin) nop ?emit (until) (then) (out)")
 	add_primitive("cr",0,		"10 emit")
-	add_word("u.",0,	" 0 swap (begin) dup base @ mod dup 9 > (if) 7 + (then) 48 + swap base @ (/) dup 0 = 	(until)	drop (begin) emit dup 0 = (until) drop ")
+	add_word("u.",0,	" 0 swap (begin) dup base @ umod dup 9 > (if) 7 + (then) 48 + swap base @ (u/) dup 0 = 	(until)	drop (begin) emit dup 0 = (until) drop ")
 	add_word("x.",0,	" 48 emit 120 emit 16 base ! u. 10 base ! ")
 	add_word(".",0,		"	dup 1 cell 8 * 1 - << and (if) -1 xor  1 + 45 emit (then) u. ")
 	type_cfa=add_word("type",0,	" dup 0 > (if) over + swap (do) i c@ emit (loop) (then)")
@@ -543,17 +549,18 @@ def main():
 								cell 1 + c, 108 c, here cell + 2 + cell + , 114 c, 0 , 0 c, ")
 	add_word("variable",0," create ,")
 	add_word(":",1," ?exec !csp current @ context ! create 99 here 3 - cell - cell - c! ]")
-	add_word(";",1," ?comp ?csp 114 c, [ 0 local !")
-	add_word("l;",1," ?comp ?csp 114 c, ")
+	add_word(";",1," ?comp 114 c, [ local_scope @ 0 = (if) ?csp 0 local ! (then)")
 	add_word("immediate",0,"1 latest c@ or latest c!")
 	does1_cfa=add_primitive("(does1)",0,"cell 2 * 2 + latest n>link cell +  dup >r c! 99 i 2 + cell + c! (lit)")
 	does2_cfa=add_primitive("(does2)",0,"i 3 + cell +  ! 114  r> 3 + cell 2 *  + c! (ret)")
 	add_word("does>",1," ?comp  %d cfa, here 0 , %d cfa, here swap !" %(does1_cfa,does2_cfa))
 	add_word("constant",0,"create , latest n>link cell + >r cell 2 + i c! 64 i 2 + cell + c! 114 r> 3 + cell + c!")
-	add_word("{",1," ?comp 98 c, here 0 , latest  here 0 , local ! local @ ! 4 0 state !")
-	add_word("}",0," ?exec 4 ?pair here swap ! 1 state !")
-	add_word("\"",1,"state @ (if) 98 c, here 0 , (then) 34 word here count 2 + allot 1 - 0 c, state @ (if) >r here swap ! r> 108 c, , (then) ")
+	add_word("{",1," ?comp 98 c, here 0 , latest  here 0 , local ! local @ ! 4 0 state ! 1 local_scope !")
+	add_word("}",0," ?exec 4 ?pair here swap ! 1 state ! 0 local_scope !")
+	add_word("\"",1,"state @ (if) 98 c, here 0 , (then) 34 word here count 1 + allot 1 - 0 c, state @ (if) >r here swap ! r> 108 c, , (then) ")
 	add_word(".\"",1,"state @ (if) \" %d cfa, %d cfa, (else) 34 word here count type (then)" %(count_cfa,type_cfa))
+	add_primitive("@0",0,"(@0)")
+	add_word("kallsyms_lookup_name",0,"count drop @0 + (kallsyms_lookup_name)")
 	init_code_compile(sp0_val,rp0_val,cfa+1) # cfa+1 of init word
 	output_to_h(img)
 	

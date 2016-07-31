@@ -19,7 +19,6 @@ static struct device* fDevice = NULL;
 static forth_context_type *fc;
 static char *in_buf, *out_buf;
 
-
 static int     dev_open(struct inode *, struct file *);
 static int     dev_release(struct inode *, struct file *);
 static ssize_t dev_read(struct file *, char *, size_t, loff_t *);
@@ -39,6 +38,13 @@ static struct file_operations fops =
 static int __init kforth_init(void)
 {
    
+   mutex_init(&kforth_mutex);
+   in_buf=kmalloc(CHUNK_SIZE,GFP_KERNEL);
+   out_buf=kmalloc(CHUNK_SIZE,GFP_KERNEL);
+   if(in_buf==NULL) return -ENOMEM;
+   if(out_buf==NULL) return -ENOMEM;
+   fc=forth_init();
+
    majorNumber = register_chrdev(0, DEVICE_NAME, &fops);
    if (majorNumber<0){
       printk(KERN_ALERT "Kforth failed to register a major number\n");
@@ -60,12 +66,7 @@ static int __init kforth_init(void)
       printk(KERN_ALERT "Failed to create the device\n");
       return PTR_ERR(fDevice);
    }
-   mutex_init(&kforth_mutex);
-   in_buf=kmalloc(CHUNK_SIZE,GFP_KERNEL);
-   out_buf=kmalloc(CHUNK_SIZE,GFP_KERNEL);
-   if(in_buf==NULL) return -ENOMEM;
-   if(out_buf==NULL) return -ENOMEM;
-   fc=forth_init();
+  
    return 0;
 }
 
@@ -97,12 +98,15 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
 	size_t to_read;
 	size_t lngth;
 
+
 	lngth=CIRC_CNT(fc->out.head,fc->out.tail,TIB_SIZE);
+	if(lngth==0) return 0;
 	to_read=len;
 	
 	if (len>CHUNK_SIZE) to_read=CHUNK_SIZE;
 	if (to_read>lngth)  to_read=lngth;
-	
+
+	printk("dev_read to_read=%lu\n",to_read);
 	for(i=0;i<to_read;i++)
 	{
 		out_buf[i]=read_from_out(fc);
@@ -113,6 +117,7 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
 		if(err) printk(KERN_ALERT "Kforth: Can't write to userspace\n");
 	}
 	return to_read;
+	return 0;
 }
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 {

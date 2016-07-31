@@ -6,6 +6,7 @@
 #include <linux/circ_buf.h>
 #include <linux/kthread.h>
 #include <linux/sched.h>
+#include <linux/kallsyms.h>
 #include "forth.h"
 
 
@@ -94,6 +95,13 @@ static inline  void div_(forth_context_type *fc)
 	fc->SP+=fc->cell;
 }
 
+static inline  void udiv(forth_context_type *fc)
+{
+	
+	*(size_t *)(fc->mem+(fc->SP+fc->cell))/=*(size_t *)(fc->mem+(fc->SP));
+	fc->SP+=fc->cell;
+}
+
 static inline  void mod(forth_context_type *fc)
 {
 	
@@ -101,6 +109,12 @@ static inline  void mod(forth_context_type *fc)
 	fc->SP+=fc->cell;
 }
 
+static inline  void umod(forth_context_type *fc)
+{
+	
+	*(size_t *)(fc->mem+(fc->SP+fc->cell))%=*(size_t *)(fc->mem+(fc->SP));
+	fc->SP+=fc->cell;
+}
 
 static inline  void and(forth_context_type *fc)
 {
@@ -269,7 +283,7 @@ void put_to_in(forth_context_type *fc, char c)
 	set_current_state(TASK_INTERRUPTIBLE);
 	while (CIRC_SPACE(fc->in.head,fc->in.tail,TIB_SIZE)==0)
 	{
-		schedule_timeout(2);
+		schedule_timeout(1);
 		set_current_state(TASK_INTERRUPTIBLE);
 		if(fc->stop) return;
 	}
@@ -284,7 +298,7 @@ char read_from_out(forth_context_type *fc)
 	set_current_state(TASK_INTERRUPTIBLE);
 	while (CIRC_CNT(fc->out.head,fc->out.tail,TIB_SIZE)==0)
 	{
-		schedule_timeout(2);
+		schedule_timeout(1);
 		set_current_state(TASK_INTERRUPTIBLE);
 		if(fc->stop) return 0;
 	}
@@ -308,6 +322,21 @@ static inline  void shr(forth_context_type *fc)
 	
 	*(size_t *)(fc->mem+(fc->SP+fc->cell))<<=*(size_t *)(fc->mem+(fc->SP));
 	fc->SP+=fc->cell;
+}
+
+static inline  void adr0(forth_context_type *fc)
+{
+	push(fc,(size_t)fc->mem);
+}
+
+static inline void kalsym_lookup(forth_context_type *fc)
+{
+	size_t *sp;
+	char *str;
+	sp=(size_t *)(fc->mem+(fc->SP));
+	str=(char *)*sp;
+	*sp=kallsyms_lookup_name(str);
+//	printk("PAR:%lu,'%s'\n",strlen(str),str);
 }
 
 static inline  void forth_vm_execute_instruction(forth_context_type *fc, char cmd)
@@ -352,6 +381,7 @@ static inline  void forth_vm_execute_instruction(forth_context_type *fc, char cm
 		case 'i': in(fc);					break; // in
 		case 'o': out(fc);					break; // out
 		case '_': fc->stop=1;				break; // stop
+		case 'A': adr0(fc);					break; // @0
 		case 1:	  push(fc,fc->SP);			break; // SP@
 		case 2:	  fc->SP=pop(fc);			break; // SP!
 		case 3:	  push(fc,fc->RP);			break; // RP@
@@ -364,6 +394,10 @@ static inline  void forth_vm_execute_instruction(forth_context_type *fc, char cm
 		case 10: set_current_state(TASK_INTERRUPTIBLE); schedule_timeout(1);				break; // nop
 		case 11: in_ready(fc);				break; // ?in
 		case 12: out_ready(fc);				break; // ?out
+		case 16: umod(fc);					break; // umod
+		case 17: udiv(fc);					break; // u/
+// kernel
+		case 'K': kalsym_lookup(fc);		break; // lookup kallsym address
 	}
 }
 
@@ -372,6 +406,7 @@ static int forth_vm_main_loop(void *data)
 	forth_context_type *fc;
 	char cmd;
 	fc=data;
+	if(fc==NULL) return 0;
 	while(fc->stop==0)
 	{
 		if(kthread_should_stop()) break;
@@ -387,20 +422,20 @@ forth_context_type* forth_init(void)
 	size_t i;
 	forth_context_type* fc;
 	fc=kmalloc(sizeof(forth_context_type),GFP_KERNEL);
-	if(fc)
-	{
-		fc->in.buf=kmalloc(TIB_SIZE,GFP_KERNEL);
-		fc->out.buf=kmalloc(TIB_SIZE,GFP_KERNEL);
-		fc->in.tail=0; fc->in.head=0;
-		fc->out.tail=0; fc->out.head=0;
-		fc->mem=kmalloc(MEM_SIZE,GFP_KERNEL);
-		for(i=0;i<forth_img_length;i++) fc->mem[i]=forth_img[i];
-		fc->cell=sizeof(size_t);
-		fc->PC=0;
-		fc->stop=0;
-		forthThread=kthread_run(forth_vm_main_loop,fc,"Kforth");
-//		forth_vm_main_loop(fc);
-	}
+	if(fc==NULL) return fc;
+	fc->in.buf=kmalloc(TIB_SIZE,GFP_KERNEL);
+	fc->out.buf=kmalloc(TIB_SIZE,GFP_KERNEL);
+	fc->in.tail=0; fc->in.head=0;
+	fc->out.tail=0; fc->out.head=0;
+	fc->mem=kmalloc(MEM_SIZE,GFP_KERNEL);
+	for(i=0;i<forth_img_length;i++) fc->mem[i]=forth_img[i];
+	fc->cell=sizeof(size_t);
+	fc->PC=0;
+	fc->stop=0;
+	fc->SP=128; // pre-init stacks
+	fc->RP=256; //
+	forthThread=kthread_run(forth_vm_main_loop,fc,"Kforth");
+//	forth_vm_main_loop(fc);
 	return fc;
 }
 
