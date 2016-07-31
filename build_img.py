@@ -600,6 +600,10 @@ def main():
 	add_word("kallsyms_lookup_name",0,"count drop @0 + (kallsyms_lookup_name)")
 	add_primitive("kcall",0,"(kcall)")
 	add_primitive("export",0,"@0 +")
+	add_primitive(">link",0,"cell -")
+	add_word(">name",0,">link 1 - dup c@ - 2 -")
+	add_word("forget",0,"-find (if) dup >link @ current @ ! >name dp ! (else) 0 error (then) ")
+	add_word("words",0,"latest (begin) dup 1 + count type bl emit n>link @ dup 0 = (until) drop cr ")
 	init_code_compile(sp0_val,rp0_val,cfa+1) # cfa+1 of init word
 	output_to_h(img)
 	
