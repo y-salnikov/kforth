@@ -339,6 +339,95 @@ static inline void kalsym_lookup(forth_context_type *fc)
 //	printk("PAR:%lu,'%s'\n",strlen(str),str);
 }
 
+static inline void kcall(forth_context_type *fc) // arg1, arg2, arg3...argN, N, adr -- retval
+{
+	size_t N;
+	size_t adr;
+	size_t args[KARGS];
+	size_t ret=0;
+	int i;
+	kall0 f0;
+	kall1 f1;
+	kall2 f2;
+	kall3 f3;
+	kall4 f4;
+	kall5 f5;
+	kall6 f6;
+	kall7 f7;
+	kall8 f8;
+	kall9 f9;
+	kall10 f10;
+	kall11 f11;
+	kall12 f12;
+	kall13 f13;
+	kall14 f14;
+	kall15 f15;
+	kall16 f16;
+	
+	adr=pop(fc);
+	N=pop(fc);
+	for(i=1;i<=N;i++)
+	{
+		args[N-i]=pop(fc);
+	}
+	switch(N)
+	{
+		case 0: f0=(kall0)adr;
+				ret=f0();
+				break;
+		case 1: f1=(kall1)adr;
+				ret=f1(args[0]);
+				break;
+		case 2: f2=(kall2)adr;
+				ret=f2(args[0],args[1]);
+				break;
+		case 3: f3=(kall3)adr;
+				ret=f3(args[0],args[1],args[2]);
+				break;
+		case 4: f4=(kall4)adr;
+				ret=f4(args[0],args[1],args[2],args[3]);
+				break;
+		case 5: f5=(kall5)adr;
+				ret=f5(args[0],args[1],args[2],args[3],args[4]);
+				break;
+		case 6: f6=(kall6)adr;
+				ret=f6(args[0],args[1],args[2],args[3],args[4],args[5]);
+				break;
+		case 7: f7=(kall7)adr;
+				ret=f7(args[0],args[1],args[2],args[3],args[4],args[5],args[6]);
+				break;
+		case 8: f8=(kall8)adr;
+				ret=f8(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7]);
+				break;
+		case 9: f9=(kall9)adr;
+				ret=f9(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8]);
+				break;
+		case 10: f10=(kall10)adr;
+				ret=f10(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8],args[9]);
+				break;
+		case 11: f11=(kall11)adr;
+				ret=f11(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8],args[9],args[10]);
+				break;
+		case 12: f12=(kall12)adr;
+				ret=f12(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8],args[9],args[10],args[11]);
+				break;
+		case 13: f13=(kall13)adr;
+				ret=f13(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8],args[9],args[10],args[11],args[12]);
+				break;
+		case 14: f14=(kall14)adr;
+				ret=f14(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8],args[9],args[10],args[11],args[12],args[13]);
+				break;
+		case 15: f15=(kall15)adr;
+				ret=f15(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8],args[9],args[10],args[11],args[12],args[13],args[14]);
+				break;
+		case 16: f16=(kall16)adr;
+				ret=f16(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8],args[9],args[10],args[11],args[12],args[13],args[14],args[15]);
+				break;
+	}
+	push(fc,ret);
+}
+
+
 static inline  void forth_vm_execute_instruction(forth_context_type *fc, char cmd)
 {
 //	printf("%c\n",cmd);
@@ -398,6 +487,7 @@ static inline  void forth_vm_execute_instruction(forth_context_type *fc, char cm
 		case 17: udiv(fc);					break; // u/
 // kernel
 		case 'K': kalsym_lookup(fc);		break; // lookup kallsym address
+		case 18:  kcall(fc);				break; // kcall
 	}
 }
 

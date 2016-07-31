@@ -99,6 +99,7 @@ pvoc={	"(0)":		 	['0'],
 		"(kallsyms_lookup_name)":["K"],
 		"(umod)":		[chr(16)],
 		"(udiv)":		[chr(17)],
+		"(kcall)":		[chr(18)],
 		}
 
 
@@ -561,6 +562,8 @@ def main():
 	add_word(".\"",1,"state @ (if) \" %d cfa, %d cfa, (else) 34 word here count type (then)" %(count_cfa,type_cfa))
 	add_primitive("@0",0,"(@0)")
 	add_word("kallsyms_lookup_name",0,"count drop @0 + (kallsyms_lookup_name)")
+	add_primitive("kcall",0,"(kcall)")
+	add_primitive("export",0,"@0 +")
 	init_code_compile(sp0_val,rp0_val,cfa+1) # cfa+1 of init word
 	output_to_h(img)
 	

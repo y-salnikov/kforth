@@ -106,7 +106,7 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
 	if (len>CHUNK_SIZE) to_read=CHUNK_SIZE;
 	if (to_read>lngth)  to_read=lngth;
 
-	printk("dev_read to_read=%lu\n",to_read);
+
 	for(i=0;i<to_read;i++)
 	{
 		out_buf[i]=read_from_out(fc);
